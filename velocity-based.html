@@ -1,0 +1,485 @@
+<html>
+<script src="require.js"></script>
+<script src="color-0.5.0.min.js"></script>
+<script>
+	var width =1000,
+		height = 1000;
+	var canvas = document.createElement('canvas');
+	var start = [];
+	var cur   = [];
+	var vel   = [];
+	var SM = 50000000000000000;
+	var G =  6.67 * Math.pow(10,-11);
+	var mu = SM * G;
+	var vec_color, VK=3,vk,time,oldtime,dt,P, A, P_phi, LargeSemiAxis, eccentricity;
+	var objects = [];
+	document.addEventListener('mousedown', function(event){
+		start = [event.clientX, event.clientY];
+		// start_phi = 
+	},false);
+	
+	document.addEventListener('mouseup', function(event){
+		var color = Math.floor(Math.random() * 361);
+		
+		var hsl = new Color().hsl( color, 50, 50);
+		// console.log(hsl.hsl(), hsl.hexString());
+		var obj = {v:[vk[0], vk[1]],p:[start[0], start[1]], 
+				   v0:[vk[0], vk[1]],
+				   x0:[start[0], start[1]],
+				   
+				   A:A, P:P, phi0:P_phi, 
+				   a: LargeSemiAxis,
+				   e: eccentricity,
+				   min_r : 1000000000,
+				   max_r : 0,
+				   min_r_point:[],
+				   max_r_point:[],
+				   
+				   positions:[],save_time:0, color:hsl};
+		objects.push(obj);
+		start = [];
+	},false);
+	
+	document.addEventListener('mousemove', function(event){
+		cur = [event.clientX, event.clientY];
+		vel = [cur[0] - start[0], cur[1] - start[1]];
+		vk = Mul (vel, 1/ VK);
+	},false);
+	
+
+	
+	
+	canvas.width = width;
+	canvas.height = height;
+	var ctx = canvas.getContext('2d');
+	
+	var sun = {c:[width/2,height/2], mass:9.46,color:"#ff0"};
+	
+	function animate(t){
+		// console.log(t);
+		
+		var save_thres = 70;
+		clear();
+		time = new Date().getTime();
+		dt = (time - oldtime)/1000;
+		oldtime = time;
+		//dt = t - time;
+		// console.log(time);
+		for(var i =0; i < objects.length; i++){
+			var o = objects[i];
+			var rv = Sub(o.p, sun.c);
+			var rvn = Normal(rv);
+			var r = L(rv);
+			// console.log(rv, rvn, r);
+			
+			var g =  mu/ (r*r) ;
+			// console.log(g);
+			
+			var gdt = -g*dt*dt;
+			
+			var gv = Mul(rvn, gdt);
+			// console.log(rvn);
+			var dv = Mul(rvn, -g*dt);
+			
+			var dx = Add(gv , Mul(o.v, dt));
+			// console.log(Mul(gv , dt*dt));
+			o.v = Add(o.v, dv);
+			o.p = Add(o.p, dx);
+			if (o.save_time == 0 || time - o.save_time > save_thres){
+				o.save_time = time;
+				// console.log("psuh", i);
+				o.positions.push(o.p);
+			}
+			var r = L(Sub(o.p, sun.c));
+			
+			if(o.min_r > r){
+				o.min_r = r;
+				o.min_r_point = [o.p[0], o.p[1]];
+			}
+			
+			if(o.max_r < r){
+				o.max_r = r;
+				o.max_r_point = [o.p[0], o.p[1]];
+			}
+			if(o.max_r_point.length > 0 &&  o.min_r_point.length > 0){
+				// console.log(o.max_r_point ,  o.min_r_point)
+				var vec = Normal(Sub(o.max_r_point , o.min_r_point));
+				o.p_bsin = Math.asin(vec[1]);
+				o.p_bcos = Math.acos(vec[0]);
+				o.axis_vec = vec;
+			}
+			var RE = (o.max_r - o.min_r) / (o.max_r + o.min_r);
+			o.RE = RE;
+			
+			
+			
+			
+			
+		}
+		draw_stage();
+		requestAnimationFrame(animate, canvas);
+	}
+	
+	function clear(){
+		ctx.fillStyle = "#000";
+		ctx.fillRect(0,0, width, height);
+	}
+	function L (v){
+		return Math.sqrt(v[0]*v[0] + v[1] * v[1]);
+	}
+	function Normal(v){
+		var l = L(v);
+		return Mul(v, 1/l);
+	}
+	function Cross(v1, v2){
+		return v1[0] * v2[1] - v1[1] * v2[0];
+		
+	}
+	function Mul(v, s){
+		return [v[0] * s, v[1] * s];
+	}
+	function Add(v1,v2){
+		return [v1[0] + v2[0], v1[1] + v2[1]];
+	}
+	function Sub(v1,v2){
+		return [v1[0] - v2[0], v1[1] - v2[1]];
+	}
+	function txt(){
+		ctx.fillStyle = "green";
+		ctx.font = "20pt Arial";
+		for (var i = 0; i < arguments.length; i++){
+			var arg = arguments[i];
+			var txt = arg[0];
+			var val = arg[1];
+			var h = i * 25 + 50;
+			ctx.fillText(txt + ": " + val, 10, h);
+		}
+	}
+	function drawEllipse(o) {
+		var x, y, 
+		a=o.a, 
+		b=a * Math.sqrt(1 - o.e),
+		rotation = o.p_bcos,
+		P = o.P;
+			
+			
+			
+		var Ec = a - P;
+		// var Ephi =  Math.PI + P_phi;
+			
+		x = Ec * Math.cos(rotation) + sun.c[0]
+		y = Ec * Math.sin(rotation) + sun.c[1] ;
+		// console.log(a);
+	   // Запоминаем положение системы координат (CК) и масштаб
+		ctx.save();
+	  
+	  
+	  
+	  ctx.beginPath();
+	 
+	  // Переносим СК в центр будущего эллипса
+	  ctx.translate(x, y);
+	  ctx.rotate(rotation);
+	  ctx.beginPath()
+	  ctx.moveTo(-a,0);
+	  ctx.lineTo(a,0);
+	  ctx.stroke();
+	  ctx.closePath();
+	  /*
+	   * Масштабируем по х.
+	   * Теперь нарисованная окружность вытянется в a / b раз
+	   * и станет эллипсом
+	   */
+	 
+	  ctx.scale(a / b, 1);
+	 
+	  // Рисуем окружность, которая благодаря масштабированию станет эллипсом
+	  ctx.arc(0, 0, b, 0, Math.PI * 2, true);
+	 
+	  // Восстанавливаем СК и масштаб
+	  ctx.restore();
+	  ctx.strokeStyle="red";
+	  ctx.stroke();
+	  // ctx.closePath();
+	  ctx.stroke();
+	  
+	ctx.save()
+	ctx.translate(x,y);
+	  
+	  
+	  //******************************
+	var radiusX = a;
+	var radiusY = b;
+	var rotationAngle = Math.PI/2;
+	ctx.beginPath();
+	ctx.rotate(rotation);
+	for (var i = 0 * Math.PI; i < 2 * Math.PI; i += 0.01 ) {
+		xPos = a * Math.cos(i);
+		yPos = b * Math.sin(i);
+
+		if (i == 0) {
+			ctx.moveTo(xPos, yPos);
+		} else {
+			ctx.lineTo(xPos, yPos);
+		}
+	}
+	ctx.closePath();
+	ctx.strokeStyle = "green";
+	ctx.stroke();
+	ctx.restore();
+	  //******************************
+	  
+	  
+	  ctx.save();
+	  
+	  /// 
+		
+		var x, y, 
+		a= (o.min_r + o.max_r)/2, 
+		b=a * Math.sqrt(1 - o.RE),
+		rotation = o.p_bcos,
+		P = o.P;
+	  
+	  ctx.beginPath();
+	 
+	  // Переносим СК в центр будущего эллипса
+	  ctx.translate(x, y);
+	  ctx.rotate(rotation);
+	  ctx.beginPath()
+	  ctx.moveTo(-a,0);
+	  ctx.lineTo(a,0);
+	  ctx.stroke();
+	  ctx.closePath();
+	  /*
+	   * Масштабируем по х.
+	   * Теперь нарисованная окружность вытянется в a / b раз
+	   * и станет эллипсом
+	   */
+	 
+	  ctx.scale(a / b, 1);
+	 
+	  // Рисуем окружность, которая благодаря масштабированию станет эллипсом
+	  ctx.arc(0, 0, b, 0, Math.PI * 2, true);
+	 
+	  // Восстанавливаем СК и масштаб
+	  ctx.restore();
+	  ctx.strokeStyle="blue";
+	  ctx.stroke();
+	  // ctx.closePath();
+	  ctx.stroke();
+	  /*
+	  	ctx.save();
+		ctx.translate(sun.c[0], sun.c[1])
+		ctx.beginPath();
+		ctx.arc(P*Math.cos(rotation), P * Math.sin(rotation), 10,0, 2*Math.PI);
+		ctx.strokeStyle = "#0ff";
+		ctx.stroke();
+		ctx.closePath();
+		ctx.beginPath();
+		ctx.arc(r*Math.cos(phi), r * Math.sin(phi), 10,0, 2*Math.PI);
+		ctx.strokeStyle = "#fff";
+		ctx.stroke();
+		ctx.closePath();
+		ctx.restore();
+		*/
+	}
+	function draw_ellipse(){
+		// var mu = 10000;
+		var point = Sub(start, sun.c);
+		var vk = Mul(vel, 1/VK);
+		var r = L(point);
+		var velocity = L(vk)
+		var v = velocity;
+		var h = Cross(point, vk);
+		var energy = (v*v/2) - (mu/r);
+		
+		// Большая полуось и эксцентриситет
+		var a = -mu/(2*energy);
+		
+		var e_ = Math.sqrt( ((2*h*h * energy/(mu*mu)) + 1));
+		eccentricity = e_;
+		var b = a * Math.sqrt(1 - e_*e_);
+	
+		if( e_ > 0 && e_ < 1){
+			vec_color = "#dfd";
+		}else{
+			vec_color = "#f33";
+		
+		}
+		
+		
+		var p = a* (1 - e_*e_);
+		// Фаза - отклониени от эллипса - угол объект в полярных координатах относительно 0 находящегося в перигелии
+		var cos_phi = (v*v*p/mu -1 - e_*e_)/ (2*e_)
+		var phi = Math.acos(cos_phi);
+		
+		// Перигелий
+		P = a * (1 - e_);
+		A = a * (1 + e_);
+		LargeSemiAxis = a;
+		// Фаза перигелия
+		P_phi = phi;
+		
+		// Центр эллипса
+		
+		var Ec = a - P;
+		var Ephi =  Math.PI + P_phi;
+		
+		var ECxy = [ Ec * Math.cos(Ephi) + sun.c[0], Ec* Math.sin(Ephi) + sun.c[1] ];
+		txt(["E:", e_])
+		
+		
+	}
+	function draw_stage(){
+		// Draw sun;
+		ctx.save();
+		ctx.translate(sun.c[0], sun.c[1]);
+		ctx.beginPath();
+		ctx.arc(0,0,sun.mass,0,2*Math.PI);
+		ctx.fillStyle = sun.color;
+		ctx.fill();
+		ctx.restore();
+		//
+		ctx.beginPath();
+		ctx.strokeStyle="#fff";
+		ctx.arc(555,264,4,0,2*Math.PI);
+		ctx.stroke();
+		
+		ctx.beginPath();
+		ctx.arc(555+132,264+37,4,0,2*Math.PI);
+		ctx.stroke();
+		if(start.length >0){
+			
+			ctx.save();
+			ctx.translate(start[0], start[1]);
+			ctx.beginPath();
+			
+			ctx.moveTo(0,0);
+			ctx.lineTo(vel[0], vel[1]);
+			ctx.strokeStyle = vec_color;
+			ctx.stroke();
+			ctx.closePath();
+			
+			ctx.beginPath();
+			ctx.moveTo(0,0);
+			ctx.lineTo(vk[0], vk[1]);
+			ctx.strokeStyle = "blue";
+			ctx.stroke();
+			ctx.closePath();
+			
+			ctx.restore();
+			
+			draw_ellipse();
+		}
+		
+		for (var i=0; i< objects.length; i ++){
+			var o = objects[i];
+			ctx.save();
+			ctx.beginPath();
+			ctx.translate(o.p[0],o.p[1]);
+			ctx.arc(0,0,sun.mass,0,2*Math.PI);
+			ctx.fillStyle = o.color.hexString();
+			ctx.fill();
+			ctx.closePath();
+			
+			
+			ctx.restore();
+			
+			ctx.save();
+			ctx.translate(sun.c[0],sun.c[1]);
+			ctx.beginPath();
+			//var px = o.P * Math.cos(o.P_phi);
+			//var py = o.P * Math.sin(o.P_phi);
+			// console.log(o.P, L(Sub(o.p, sun.c)))
+			// ctx.arc(px,py, 5,0,2*Math.PI);
+			ctx.strokeStyle = "#dfd";
+			ctx.stroke();
+			ctx.closePath();
+			
+			
+			ctx.restore();
+			
+			ctx.beginPath();
+			for(var p = 0; p < o.positions.length; p++){
+				var pos = o.positions[p];
+				if(p == 0){
+					ctx.moveTo(pos[0], pos[1]);
+				}else{
+					ctx.lineTo(pos[0], pos[1]);
+				}
+				
+				
+			}
+			//ctx.closePath()
+			//console.log(o.color.rgb());
+			ctx.strokeStyle = o.color.hexString();
+			ctx.stroke();
+			
+			if(o.min_r_point.length > 0){
+				ctx.beginPath();
+				ctx.arc(o.min_r_point[0],o.min_r_point[1],4,0,2*Math.PI);
+				ctx.strokeStyle = o.color.hexString();
+				ctx.stroke();
+			}
+			
+			if(o.max_r_point.length > 0){
+				
+				ctx.beginPath();
+				ctx.arc(o.max_r_point[0],o.max_r_point[1],4,0,2*Math.PI);
+				ctx.strokeStyle = o.color.hexString();
+				ctx.stroke();
+			}
+			
+			var RR = 150;
+			//var a = o.p_bcos;
+			ctx.save()
+			ctx.beginPath();
+			ctx.translate(sun.c[0], sun.c[1]);
+			ctx.moveTo(0, 0);
+			ctx.lineTo(RR * Math.cos(o.p_bcos), RR * Math.sin(o.p_bcos));
+			//ctx.lineTo(RR * Math.cos(a), RR * Math.sin(a));
+			ctx.strokeStyle = 'red';
+			ctx.stroke();
+
+			ctx.beginPath();
+			ctx.moveTo(0, 0);
+			ctx.lineTo(o.axis_vec[0]*100, o.axis_vec[1]*100);
+			//ctx.lineTo(RR * Math.cos(a), RR * Math.sin(a));
+			ctx.strokeStyle = 'blue';
+			ctx.stroke();
+			
+			ctx.restore();
+			drawEllipse(o);
+			
+			
+
+			
+			var realA = L(Sub(o.min_r_point, o.max_r_point))/2
+			
+			var RE = (o.max_r - o.min_r) / (o.max_r + o.min_r)
+			txt(["E",o.e], ["E_",RE], 
+				["DE",(1-o.e/RE)], ["RE",o.e-RE],
+				["X",o.x0[0]], ["Y",o.x0[1]],
+				["VX",o.v0[0]], ["VY",o.v0[1]]
+				
+				);
+		}
+
+
+		
+
+	
+	}
+	function run(){
+		document.body.appendChild(canvas);
+		animate()
+	}
+	
+	
+</script>
+
+<body onload=run();>
+
+
+</body>
+</html>
