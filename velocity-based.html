@@ -266,8 +266,14 @@
 		var a = o.a;
 		var e = o.e;
 		var b = a*Math.sqrt(1-e*e);
-		
-		var pr = Sub(o.x0,sun.c)
+		var P = o.P;
+		var Ec = a - P;
+		// var Ephi =  Math.PI + P_phi;
+			
+		x = Ec * Math.cos(o.phi0) + sun.c[0]
+		y = Ec * Math.sin(o.phi0) + sun.c[1] ;
+		var ECv = [x,y];
+		var pr = Sub(o.x0, ECv);
 		lineRelative(1,pr,"green", 5);
 		lineRelative(1,Rotate(pr, -Math.PI-o.phi0),"white", 5);
 		lineRelative(1,pr,"green", 5);
@@ -279,7 +285,16 @@
 		
 		var sint = Y/b;
 		var cost = X/a;
-		console.log(sint, cost, a,b, pr);
+		var x = Math.acos(cost);
+		// console.log(t);
+		if(sint < 0){
+			console.log(x);
+			x  = Math.PI * 2 - x;
+		}
+		linePolar(200, x - Math.PI/2,"blue", 5);
+		var t = x*o.T/(Math.PI*2)
+		
+		//console.log(t,o.T);
 		
 		
 		
@@ -296,7 +311,7 @@
 		//console.log(">>>", T)
 		//var mean_motion = 2 * Math.PI / T
 		
-		var M =  ptime * Math.PI / (T/2) ;
+		var M =  Math.PI - o.phi1 + ptime * Math.PI / (T/2) ;
 		var E = calcE(e, M) 
 		// var E = EccAnom(planet.eccentricity, M, 10);
 		var pvc_ = o.pvc/ Math.abs(o.pvc);
