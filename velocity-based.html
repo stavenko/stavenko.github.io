@@ -11,10 +11,12 @@
 	var SM = 50000000000000000;
 	var G =  6.67 * Math.pow(10,-11);
 	var mu = SM * G;
-	var vec_color, VK=3,vk,time,oldtime,dt,SunPoint, PVC, SunSpeed,P, A, P_phi, LargeSemiAxis, eccentricity, pointAngle;
+	var vec_color, VK=3,vk,time,oldtime, Phi, TimeTaken, dt,SunPoint, Period, PVD,PVC, SunSpeed,P, A, P_phi, LargeSemiAxis, eccentricity, pointAngle;
 	var objects = [];
 	document.addEventListener('mousedown', function(event){
 		start = [event.clientX, event.clientY];
+		TimeTaken = new Date().getTime();
+		// console.log(TimeTaken);
 		// start_phi = 
 	},false);
 	
@@ -28,8 +30,10 @@
 				   
 				   x0:[start[0], start[1]],
 				   pvc:PVC,
-				   
-				   A:A, P:P, phi0:P_phi, 
+				   pvd:PVD,
+				   T:Period,
+				   phase:TimeTaken,
+				   A:A, P:P, phi0:P_phi, phi1:Phi,
 				   a: LargeSemiAxis,
 				   e: eccentricity,
 				   min_r : 1000000000,
@@ -218,6 +222,112 @@
 		return vout;
 	
 	}
+		function TrueAnom(ec,E,dp) {
+		//var TE = Math.tan(E/2);
+		//var TE2 = TE * TE;
+		//var T = (1+ec) / (1-ec) * TE2;
+		//var phi = Math.atan(Math.sqrt(T))*2
+		//return phi;
+		
+		//K=Math.PI/180.0;
+		S=Math.sin(E);
+
+		C=Math.cos(E);
+
+		fak=Math.sqrt(1.0-ec*ec);
+
+		phi=Math.atan2(fak*S,C-ec) //  /K;
+
+		return Math.round(phi*Math.pow(10,dp))/Math.pow(10,dp);
+
+		}
+	function calcE(e, M){
+	var Enew=1;
+	var Eold=0;
+	var Etemp=0;
+	var E=0;
+	var attempts = 0, max_attempts = 50;
+	//change the value in the next line for different accuracy
+	//of value of E found from M
+	while(Math.abs(Enew-Eold)>0.00001){
+		// console.log("FF");
+		Etemp=Enew;
+		Enew=M+e*Math.sin(Eold);
+		Eold=Etemp;
+		attempts += 1;
+		if (attempts > max_attempts){ break;}
+	}
+	   
+	E=Enew;
+	return E;
+	}
+	function findTime(o){
+
+		var a = o.a;
+		var e = o.e;
+		var b = a*Math.sqrt(1-e*e);
+		
+		var pr = Sub(o.x0,sun.c)
+		lineRelative(1,pr,"green", 5);
+		lineRelative(1,Rotate(pr, -Math.PI-o.phi0),"white", 5);
+		lineRelative(1,pr,"green", 5);
+		lineRelative(1,pr,"green", 5);
+		
+		var rpr;
+		var X = pr[0] ;
+		var Y = pr[1] ;
+		
+		var sint = Y/b;
+		var cost = X/a;
+		console.log(sint, cost, a,b, pr);
+		
+		
+		
+	}
+	function draw_planet(o){
+		var mu = 1000;
+		var p = o.P;
+		var cs = p/((1/o.e ) - 1 );
+		var e = o.e;
+		var a  = p + cs;
+		var b  = a * Math.sqrt(1 - e*e);
+		var ptime = time + o.phase ;
+		var T = o.T * 1000;
+		//console.log(">>>", T)
+		//var mean_motion = 2 * Math.PI / T
+		
+		var M =  ptime * Math.PI / (T/2) ;
+		var E = calcE(e, M) 
+		// var E = EccAnom(planet.eccentricity, M, 10);
+		var pvc_ = o.pvc/ Math.abs(o.pvc);
+		
+		var phi = ( TrueAnom(e, E, 7)  )*  pvc_  
+		
+		
+		var R   = a*(1-e*e)/(1+e*Math.cos(phi)) 
+		var vel = Math.sqrt(mu * ( 2/R - 1/a));
+		phi += o.phi0 + Math.PI 
+		// var ap = [RR * Math.cos(phi), RR* Math.sin(phi)];
+		
+		var pos = [R * Math.cos(phi), R* Math.sin(phi)];
+		// console.log(o.phase);
+		pointV(Add(sun.c,pos), 15,"white", true);
+		
+		// ********
+		cos_phi = (o.a*(1 - o.e*o.e) - R )/ (R*o.e);
+		var ophi = Math.acos(cos_phi);
+		// =========
+		
+		var t = findTime(o);
+		txt(["E",o.e], 
+			["X",o.x0[0]], ["Y",o.x0[1]],
+			["PHI", phi],
+			["OPHI", ophi],
+			["D", phi - ophi],
+			["dt", t]
+				
+				);
+	}
 	function txt(){
 		ctx.fillStyle = "green";
 		ctx.font = "20pt Arial";
@@ -369,7 +479,7 @@
 		var pointNormal = Normal(point);
 		
 		pointAngle = Math.acos(pointNormal[0]);
-		var PVD = Dot(point, vk);
+		PVD = Dot(point, vk);
 		PVC = Cross(point, vk);
 		var pa;
 		
@@ -423,28 +533,21 @@
 		if(PVD > 0){
 			phi = Math.PI *2 - phi;
 		}
-		/*
-		if (o.pvc < 0){
-			rotation =  Math.PI - o.phi0;
-		}
-		else{
-			rotation = Math.PI + o.phi0;
-		}
-		*/
+		Phi = phi;
 		if(PVC > 0){
-			// Math.PI - похоже это надо для отрисовки на канвасе.
+			
 			P_phi = Math.PI + phi - pointAngle;
 		}else{
 			P_phi = Math.PI - phi - pointAngle;
 			
 		}
+		Period = 2* Math.PI * Math.sqrt(a*a*a/mu);
 		peri =  P_phi;
 		
 		var Ec = a - P;
 		var Ephi =  Math.PI + P_phi;
 		
 		var ECxy = [ Ec * Math.cos(Ephi) + sun.c[0], Ec* Math.sin(Ephi) + sun.c[1] ];
-		txt(["E:", e_], ["A", phi], ["P", ophi], ["Peri", peri],["PA", pointAngle], ["D", PVD])
 		
 		
 	}
@@ -620,6 +723,7 @@
 			// lineRelative(150, o.axis_vec, "blue", 1);
 
 			drawEllipse(o);
+			draw_planet(o);
 			
 
 			
@@ -632,13 +736,7 @@
 			var ps = Sub(o.p, sun.c);
 			var vs = Sub(o.v, sun.c);
 			var dot = Dot(ps, vs);
-			txt(["E",o.e], ["E_",RE], 
-				["DE",(1-o.e/RE)], ["RE",o.e-RE],
-				["X",o.x0[0]], ["Y",o.x0[1]],
-				["V0",L(o.v0)], ["C", Dot(o.v0, o.x0)],
-				["dot", _d]
-				
-				);
+
 		}
 
 
