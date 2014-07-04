@@ -1,5 +1,5 @@
 <html>
-<script src="require.js"></script>
+
 <script src="color-0.5.0.min.js"></script>
 <script>
 	var width =1000,
@@ -102,17 +102,7 @@
 					o.max_r = r;
 					o.max_r_point = [o.p[0], o.p[1]];
 				}
-				
-				
-				//gv = Mul(rvn, gdt);
-				// console.log(rvn);
-				//dv = Mul(rvn, -g*timestep);
-				
-				//dx = Add(gv , Mul(o.v, timestep));
-				// console.log(Mul(gv , dt*dt));
-				//o.v = Add(o.v, dv);
-				//o.p = Add(o.p, dx);
-				//o.v = Adv;
+
 			}
 			
 			
@@ -222,14 +212,8 @@
 		return vout;
 	
 	}
-		function TrueAnom(ec,E,dp) {
-		//var TE = Math.tan(E/2);
-		//var TE2 = TE * TE;
-		//var T = (1+ec) / (1-ec) * TE2;
-		//var phi = Math.atan(Math.sqrt(T))*2
-		//return phi;
-		
-		//K=Math.PI/180.0;
+	function TrueAnom(ec,E,dp) {
+
 		S=Math.sin(E);
 
 		C=Math.cos(E);
@@ -240,78 +224,100 @@
 
 		return Math.round(phi*Math.pow(10,dp))/Math.pow(10,dp);
 
-		}
-	function calcE(e, M){
-	var Enew=1;
-	var Eold=0;
-	var Etemp=0;
-	var E=0;
-	var attempts = 0, max_attempts = 50;
-	//change the value in the next line for different accuracy
-	//of value of E found from M
-	while(Math.abs(Enew-Eold)>0.00001){
-		// console.log("FF");
-		Etemp=Enew;
-		Enew=M+e*Math.sin(Eold);
-		Eold=Etemp;
-		attempts += 1;
-		if (attempts > max_attempts){ break;}
 	}
+	function calcE(e, M){
+    	var Enew=1;
+    	var Eold=0;
+    	var Etemp=0;
+    	var E=0;
+    	var attempts = 0, max_attempts = 50;
+    	//change the value in the next line for different accuracy
+    	//of value of E found from M
+    	while(Math.abs(Enew-Eold)>0.00001){
+    		// console.log("FF");
+    		Etemp=Enew;
+    		Enew=M+e*Math.sin(Eold);
+    		Eold=Etemp;
+    		attempts += 1;
+    		if (attempts > max_attempts){ break;}
+    	}
 	   
-	E=Enew;
-	return E;
+    	E=Enew;
+    	return E;
 	}
 	function findTime(o){
 
 		var a = o.a;
 		var e = o.e;
+        var T = o.T * 1000;
 		var b = a*Math.sqrt(1-e*e);
 		var P = o.P;
 		var Ec = a - P;
+        var cos = Math.cos;
+        var sin = Math.sin;
 		// var Ephi =  Math.PI + P_phi;
-			
-		x = Ec * Math.cos(o.phi0) + sun.c[0]
-		y = Ec * Math.sin(o.phi0) + sun.c[1] ;
-		var ECv = [x,y];
-		var pr = Sub(o.x0, ECv);
-		lineRelative(1,pr,"green", 5);
-		lineRelative(1,Rotate(pr, -Math.PI-o.phi0),"white", 5);
-		lineRelative(1,pr,"green", 5);
-		lineRelative(1,pr,"green", 5);
 		
-		var rpr;
-		var X = pr[0] ;
-		var Y = pr[1] ;
+        var rel_a = o.phi1 ;
+        if(o.pvc < 0){
+            rel_a = -rel_a
+        }
+        
+        var peri_a = o.phi0 - Math.PI;
+        
+        linePolar(500, peri_a -  rel_a , "blue", 3);
+        
+        var cosE = (e + cos(rel_a)) / (1 + e * cos(rel_a) );
+        
+        var E = Math.acos(cosE);
+        
+        // console.log(
+        var M = E - e * sin(E);
+        
+        
+        dt = (M ) * T / (2*Math.PI)
+        // console.log("E", E, "M", M, "dt", dt, "T",T, "dt/T", dt/T);
+        return dt
+        
+        
+        
+        	
 		
-		var sint = Y/b;
-		var cost = X/a;
-		var x = Math.acos(cost);
-		// console.log(t);
-		if(sint < 0){
-			console.log(x);
-			x  = Math.PI * 2 - x;
-		}
-		linePolar(200, x - Math.PI/2,"blue", 5);
-		var t = x*o.T/(Math.PI*2)
-		
-		//console.log(t,o.T);
 		
 		
 		
 	}
+    var FFF = true;
+    var TBEGIN;
 	function draw_planet(o){
+        
+        var dt = findTime(o);
 		var mu = 1000;
 		var p = o.P;
 		var cs = p/((1/o.e ) - 1 );
 		var e = o.e;
 		var a  = p + cs;
 		var b  = a * Math.sqrt(1 - e*e);
-		var ptime = time + o.phase ;
+        var tl;
+        console.log(o.pvd);
+        if(FFF){
+            TBEGIN = new Date().getTime();
+            FFF = !FFF;
+        }
+        
+        if(o.pvd < 0){
+            tl = time - TBEGIN - dt ;
+        }else{
+            tl = time - TBEGIN + dt ;
+        }
+        
+        // console.log(tl);
+		var ptime = tl  ;// - dt ;
+        
 		var T = o.T * 1000;
 		//console.log(">>>", T)
 		//var mean_motion = 2 * Math.PI / T
 		
-		var M =  Math.PI - o.phi1 + ptime * Math.PI / (T/2) ;
+		var M = ptime * 2* Math.PI / T ;
 		var E = calcE(e, M) 
 		// var E = EccAnom(planet.eccentricity, M, 10);
 		var pvc_ = o.pvc/ Math.abs(o.pvc);
@@ -326,7 +332,7 @@
 		
 		var pos = [R * Math.cos(phi), R* Math.sin(phi)];
 		// console.log(o.phase);
-		pointV(Add(sun.c,pos), 15,"white", true);
+		pointV(Add(sun.c,pos), 15,"white", false);
 		
 		// ********
 		cos_phi = (o.a*(1 - o.e*o.e) - R )/ (R*o.e);
@@ -564,7 +570,7 @@
 		
 		var ECxy = [ Ec * Math.cos(Ephi) + sun.c[0], Ec* Math.sin(Ephi) + sun.c[1] ];
 		
-		
+		txt(["PVD", PVD])
 	}
 	function line(L, v, color, width){
 		ctx.save()
