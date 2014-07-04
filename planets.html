@@ -1,0 +1,266 @@
+<html>
+
+<script>
+	var width =1000,
+		height = 1000;
+	var canvas = document.createElement('canvas');
+	
+	var time = 0.0;
+	var dt = 0.05
+	
+	canvas.width = width;
+	canvas.height = height;
+	var ctx = canvas.getContext('2d');
+	
+	var sun = {c:[width/2,height/2], mass:9.46, color:"#ff0"};
+	
+	var planets = [
+		{mass: 1,
+		 perihelion:40,
+		 eccentricity:0.95,
+		 period : 10000,
+		 color:"#45f",
+		 phase: 0 ,
+		 a_: Math.PI
+		 },	
+		 {mass: 1,
+		 perihelion:40,
+		 eccentricity:0.89,
+		 period : 10000,
+		 color:"#45f",
+		 phase: 0,
+		 a_: 0
+		 },	
+		 
+		 {mass: 1,
+		 perihelion:100,
+		 eccentricity:0.85,
+		 period : 10000,
+		 color:"#fef",
+		 phase: 500,
+		 a_: 1.2
+		 },
+		 {mass: 1,
+		 perihelion:50,
+		 eccentricity:0.6,
+		 period : 10000000,
+		 color:"#4f5",
+		 phase: 5000,
+		 a_: 1
+		 },
+		{mass: 1,
+		 perihelion:400,
+		 eccentricity:0.01,
+		 period : 92.24*60*1000,
+		 color:"#ff5",
+		 phase: 0,
+		 a_: Math.PI/2
+		 }
+	];
+	
+	
+	var RR = 200;
+	// var old_phi = 0;
+	
+	function txt(){
+		ctx.fillStyle = "green";
+		ctx.font = "20pt Arial";
+		for (var i = 0; i < arguments.length; i++){
+			var arg = arguments[i];
+			var txt = arg[0];
+			var val = arg[1];
+			var h = i * 25 + 50;
+			ctx.fillText(txt + ": " + val, 10, h);
+		}
+	}
+	
+
+	function draw_planet(planet){
+		var mu = 1000;
+		var p = planet.perihelion;
+		var cs = p/((1/planet.eccentricity ) - 1 );
+		var e = planet.eccentricity;
+		var a  = p + cs;
+		var b  = a * Math.sqrt(1 - planet.eccentricity*planet.eccentricity);
+		var ptime = (time+planet.phase);
+		var mean_motion = 2 * Math.PI / planet.period
+		
+		var M = -Math.PI/2 + ptime * Math.PI / (planet.period/2) ;
+		var E = calcE(planet.eccentricity, M) 
+		// var E = EccAnom(planet.eccentricity, M, 10);
+		
+		var phi = TrueAnom(planet.eccentricity, E, 7) ;
+		var R   = a*(1-e*e)/(1+e*Math.cos(phi));
+		phi += planet.a_;
+		
+		var vel = Math.sqrt(mu * ( 2/R - 1/a));
+		
+		var ap = [RR * Math.cos(phi), RR* Math.sin(phi)];
+		
+		var pos = [R * Math.cos(phi), R* Math.sin(phi)];
+		var ppos = [p * Math.cos(planet.a_), p* Math.sin(planet.a_)];
+		
+		// var velocity = 
+		// console.log(Math.abs(phi - old_phi))
+		//old_phi = phi;
+
+		ctx.save()
+			ctx.beginPath()
+			ctx.translate(sun.c[0], sun.c[1]);
+			ctx.moveTo(0,  0);
+			ctx.lineTo(ap[0], -ap[1]);
+			ctx.strokeStyle=planet.color;
+			ctx.stroke();
+			ctx.closePath();
+		ctx.restore()
+		
+		ctx.save();
+			ctx.translate(sun.c[0] + pos[0], sun.c[1]-pos[1]);
+			ctx.beginPath();
+			ctx.arc(0,0,sun.mass,0,2*Math.PI);
+			ctx.fillStyle = planet.color;
+			ctx.fill();
+		ctx.restore();
+		
+		ctx.save();
+		//console.log("sadfs");
+			ctx.translate(sun.c[0] + ppos[0], sun.c[1]-ppos[1]);
+			ctx.beginPath();
+			ctx.arc(0,0,sun.mass,0,2*Math.PI);
+			
+			ctx.strokeStyle = planet.color;
+			ctx.stroke();
+			ctx.fillStyle="white";
+			ctx.fillText(vel, 25, 25);
+		ctx.restore();
+		
+	}
+	function position(a, ec,E) {
+
+		// a=semimajor axis, ec=eccentricity, E=eccentric anomaly
+		// x,y = coordinates of the planet with respect to the Sun
+
+		C = Math.cos(E);
+
+		S = Math.sin(E);
+
+		x = a*(C-ec);
+
+		y = a*Math.sqrt(1.0-ec*ec)*S;
+		return [x,y];
+
+	}
+	function EccAnom(ec,m,dp) {
+
+		// arguments:
+		// ec=eccentricity, m=mean anomaly,
+		// dp=number of decimal places
+		var pi=Math.PI, K=pi/180.0;
+
+		var maxIter=30, i=0;
+
+		var delta=Math.pow(10,-dp);
+
+		var E, F;
+		//console.log(m)
+		//m=m/360.0;
+		// console.log(m);
+
+		// m=2.0*pi*(m-Math.floor(m));
+		//console.log(m);
+		if (ec<0.8) E=m; else E=pi;
+
+		F = E - ec*Math.sin(m) - m;
+
+		while ((Math.abs(F)>delta) && (i<maxIter)) {
+
+			E = E - F/(1.0-ec*Math.cos(E));
+			F = E - ec*Math.sin(E) - m;
+
+			i = i + 1;
+
+		}
+		 console.log(i);
+
+		// E=E///K;
+
+		return Math.round(E*Math.pow(10,dp))/Math.pow(10,dp);
+
+		}
+	function calcE(e, M){
+var Enew=1;
+var Eold=0;
+var Etemp=0;
+var E=0;
+//change the value in the next line for different accuracy
+//of value of E found from M
+while(Math.abs(Enew-Eold)>0.00001){
+   Etemp=Enew;
+   Enew=M+e*Math.sin(Eold);
+   Eold=Etemp;
+   }
+E=Enew;
+return E;
+}
+	function TrueAnom(ec,E,dp) {
+		//var TE = Math.tan(E/2);
+		//var TE2 = TE * TE;
+		//var T = (1+ec) / (1-ec) * TE2;
+		//var phi = Math.atan(Math.sqrt(T))*2
+		//return phi;
+		
+		//K=Math.PI/180.0;
+		S=Math.sin(E);
+
+		C=Math.cos(E);
+
+		fak=Math.sqrt(1.0-ec*ec);
+
+		phi=Math.atan2(fak*S,C-ec) //  /K;
+
+		return Math.round(phi*Math.pow(10,dp))/Math.pow(10,dp);
+
+		}
+	function animate(t){
+		// console.log(t);
+		clear();
+		//dt = t - time;
+		time = new Date().getTime();
+		// console.log(time);
+		draw_stage();
+		requestAnimationFrame(animate, canvas);
+	}
+	
+	function clear(){
+		ctx.fillStyle = "#000";
+		ctx.fillRect(0,0, width, height);
+	}
+	function draw_stage(){
+		// Draw sun;
+		ctx.save();
+		ctx.translate(sun.c[0], sun.c[1]);
+		ctx.beginPath();
+		ctx.arc(0,0,sun.mass,0,2*Math.PI);
+		ctx.fillStyle = sun.color;
+		ctx.fill();
+		ctx.restore();
+		//
+		
+		for (var i =0; i < planets.length; i++){
+			draw_planet(planets[i]);
+		} 
+	
+	}
+	function run(){
+		document.body.appendChild(canvas);
+		animate()
+	}
+	
+	
+</script>
+
+<body onload=run();>
+
+
+</body>
+</html>
