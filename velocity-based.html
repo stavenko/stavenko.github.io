@@ -1,9 +1,19 @@
 <html>
 
 <script src="color-0.5.0.min.js"></script>
+<style>
+body{
+    margin:0;
+    padding:0;
+}
+</style>
 <script>
-	var width =1000,
-		height = 1000;
+var objects = [];
+
+function init(){
+    
+	var width =  document.body.clientWidth,
+		height = document.body.clientHeight;
 	var canvas = document.createElement('canvas');
 	var start = [];
 	var cur   = [];
@@ -12,16 +22,18 @@
 	var G =  6.67 * Math.pow(10,-11);
 	var mu = SM * G;
 	var vec_color, VK=3,vk,time,oldtime, Phi, TimeTaken, dt,SunPoint, Period, PVD,PVC, SunSpeed,P, A, P_phi, LargeSemiAxis, eccentricity, pointAngle;
-	var objects = [];
+    
 	document.addEventListener('mousedown', function(event){
 		start = [event.clientX, event.clientY];
 		TimeTaken = new Date().getTime();
-		// console.log(TimeTaken);
-		// start_phi = 
 	},false);
 	
 	document.addEventListener('mouseup', function(event){
-        if (eccentricity >= 1){return;}
+        if (eccentricity >= 1){
+            start = [];
+            return;
+            
+        }
 		
         var color = Math.floor(Math.random() * 361);
 		
@@ -267,7 +279,7 @@
         
         var peri_a = o.phi0 - Math.PI;
         
-        linePolar(500, peri_a -  rel_a , "blue", 3);
+        // linePolar(500, peri_a -  rel_a , "blue", 3);
         
         var cosE = (e + cos(rel_a)) / (1 + e * cos(rel_a) );
         
@@ -290,7 +302,7 @@
 		
 	}
     var FFF = true;
-    var TBEGIN;
+
 	function draw_planet(o){
         
         var dt = findTime(o);
@@ -301,16 +313,15 @@
 		var a  = p + cs;
 		var b  = a * Math.sqrt(1 - e*e);
         var tl;
-        console.log(o.pvd);
-        if(FFF){
-            TBEGIN = new Date().getTime();
-            FFF = !FFF;
+        // console.log(o.pvd);
+        if(o.tbegin == undefined ){
+            o.tbegin = new Date().getTime();
         }
         
         if(o.pvd < 0){
-            tl = time - TBEGIN - dt ;
+            tl = time - o.tbegin - dt ;
         }else{
-            tl = time - TBEGIN + dt ;
+            tl = time - o.tbegin + dt ;
         }
         
         // console.log(tl);
@@ -335,14 +346,15 @@
 		
 		var pos = [R * Math.cos(phi), R* Math.sin(phi)];
 		// console.log(o.phase);
-		pointV(Add(sun.c,pos), 15,"white", false);
+		pointV(Add(sun.c,pos), 15, o.color.hexString(), false);
 		
 		// ********
 		cos_phi = (o.a*(1 - o.e*o.e) - R )/ (R*o.e);
 		var ophi = Math.acos(cos_phi);
 		// =========
 		
-		var t = findTime(o);
+		// var t = findTime(o);
+        /*
 		txt(["E",o.e], 
 			["X",o.x0[0]], ["Y",o.x0[1]],
 			["PHI", phi],
@@ -350,7 +362,7 @@
 			["D", phi - ophi],
 			["dt", t]
 				
-				);
+				);*/
 	}
 	function txt(){
 		ctx.fillStyle = "green";
@@ -573,7 +585,7 @@
 		
 		var ECxy = [ Ec * Math.cos(Ephi) + sun.c[0], Ec* Math.sin(Ephi) + sun.c[1] ];
 		
-		txt(["PVD", PVD])
+		// txt(["PVD", PVD])
 	}
 	function line(L, v, color, width){
 		ctx.save()
@@ -640,14 +652,7 @@
 		ctx.fill();
 		ctx.restore();
 		//
-		ctx.beginPath();
-		ctx.strokeStyle="#fff";
-		ctx.arc(555,264,4,0,2*Math.PI);
-		ctx.stroke();
-		
-		ctx.beginPath();
-		ctx.arc(555+132,264+37,4,0,2*Math.PI);
-		ctx.stroke();
+
 		if(start.length >0){
 			
 			ctx.save();
@@ -693,17 +698,20 @@
 			ctx.restore();
 			ctx.save()
 			ctx.translate(o.x0[0], o.x0[1]);
+            /*
+			
 			line(L(o.v0)/100, o.v0, "red", 3);
 			var ps = Sub(o.x0, sun.c);
 			var _d = Dot(ps, o.v0);
 			line(L(ps)/100, ps, "blue", 3);
 			
-			if(_d > 0){
+            if(_d > 0){
 			
 				pointV([0,0], 15, "red", true)
 			}else{
 				pointV([0,0], 15, "blue", true)
 			}
+            */
 			ctx.restore();
 			
 			ctx.save();
@@ -734,17 +742,6 @@
 			}
 			
 			pointV(o.x0, 4, o.color.hexString(), true);
-			//linePolar(500, o.phi0, "green", 5);
-			//linePolar(500, Math.PI/2 + o.phi0, "blue", 5);
-			//linePolar(500, -o.phi0, "red", 5);
-			
-			
-			//linePolar(500, o.phi0 - Math.PI/2, "#fff", 3);
-			//linePolar(500, Math.PI   -o.phi0, "#aaa", 3);
-			
-			
-			//linePolar(150,o.p_bcos, "red", 5);
-			// lineRelative(150, o.axis_vec, "blue", 1);
 
 			drawEllipse(o);
 			draw_planet(o);
@@ -772,11 +769,18 @@
 		document.body.appendChild(canvas);
 		animate()
 	}
+    run();
 	
-	
+}
+function reset(){
+    objects = [];
+}
 </script>
 
-<body onload=run();>
+<body onload=init();>
+    <div style="position:fixed; top:0; left:0">
+        <input type="button" value="Reset" onclick="reset()"/ >
+    </div>
 
 
 </body>
