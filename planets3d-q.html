@@ -323,8 +323,6 @@
         function planetPosition(planet, i){
             var m = getRotationMatrix(planet.orbit_normal);
             var q = new THREE.Quaternion();
-            var eu = new THREE.Euler();
-            eu.setFromRotationMatrix( m, "XYZ" );
             q.setFromRotationMatrix(m)
             var pos = planetPlaneCoords(planet);
             //pos.applyEuler(eu);
@@ -366,7 +364,7 @@
             	// THREEx.WindowResize(renderer, camera);
             	// THREEx.FullScreen.bindKey({ charCode : 'm'.charCodeAt(0) });
             	// CONTROLS
-            	controls = new THREE.OrbitControls( camera, renderer.domElement );
+            	//controls = new THREE.OrbitControls( camera, renderer.domElement );
             	// STATS
             	stats = new Stats();
             	stats.domElement.style.position = 'absolute';
@@ -395,7 +393,7 @@
             	scene.fog = new THREE.FogExp2( 0x9999ff, 0.00025 );
                 
                 // SUN
-				var sun_geom = new THREE.SphereGeometry(  );
+				var sun_geom = new THREE.SphereGeometry(50,32,32  );
                 var mat = new THREE.MeshBasicMaterial();
                 var sun = new THREE.Mesh(sun_geom, mat);
                 sun.scale.multiplyScalar(0.5);
@@ -538,6 +536,7 @@
                 
                 // console.log(mesh.position.x, mesh.position.y);
                 
+                camera.position = scenePlanets[2].position.clone();
 				camera.lookAt( S.c );
                 
                 for(var i = 0; i< planets.length; i ++){

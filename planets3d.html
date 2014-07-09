@@ -211,13 +211,26 @@
             
             orbit_normal : rnn.negate(), // substitutes i and omega
             a: 500, // Large semiaxis
-            e: 0.1, // eccentricity
-            T: 150, // seconds
-            dt: 40, // phase
+            e: 0.8, // eccentricity
+            T: 14, // seconds
+            dt: 7, // phase
             Phi: 0, // Perihelium argument
             color:new Color().hsl( Math.floor(Math.random() * 361), 50, 50)
             
         },
+        {
+            size:3,
+            
+            orbit_normal : rnn.negate(), // substitutes i and omega
+            a: 500, // Large semiaxis
+            e: 0.8, // eccentricity
+            T: 14, // seconds
+            dt: 7, // phase
+            Phi: Math.PI, // Perihelium argument
+            color:new Color().hsl( Math.floor(Math.random() * 361), 50, 50)
+            
+        },
+        
         {
             size:1,
             orbit_normal : randomNormal(), // substitutes i and omega
@@ -225,7 +238,7 @@
             e: 0.99, // eccentricity
             T: 140, // seconds
             dt: 40, // phase
-            Phi: 0, // Perihelium argument
+            Phi: Math.PI/2, // Perihelium argument
             color:new Color().hsl( Math.floor(Math.random() * 361), 50, 50)
             
         },
@@ -322,10 +335,8 @@
         }
         function planetPosition(planet, i){
             var m = getRotationMatrix(planet.orbit_normal);
-            var q = new THREE.Quaternion();
             var eu = new THREE.Euler();
             eu.setFromRotationMatrix( m, "XYZ" );
-            q.setFromRotationMatrix(m)
             var pos = planetPlaneCoords(planet);
             pos.applyEuler(eu);
             // pos.applyQuaternion(q);
@@ -395,7 +406,7 @@
             	scene.fog = new THREE.FogExp2( 0x9999ff, 0.00025 );
                 
                 // SUN
-				var sun_geom = new THREE.SphereGeometry(  );
+				var sun_geom = new THREE.SphereGeometry(50,32,32  );
                 var mat = new THREE.MeshBasicMaterial();
                 var sun = new THREE.Mesh(sun_geom, mat);
                 sun.scale.multiplyScalar(0.5);
@@ -538,6 +549,9 @@
                 
                 // console.log(mesh.position.x, mesh.position.y);
                 
+                
+                // camera.position = scenePlanets[4].position.clone();
+                //camera.top = planets[2].orbit_normal.clone();
 				camera.lookAt( S.c );
                 
                 for(var i = 0; i< planets.length; i ++){
