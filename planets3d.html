@@ -34,7 +34,7 @@
 	<body>
 
 		<div id="container"></div>
-		<div id="info"><a href="http://threejs.org" target="_blank">three.js</a> - shader demo. featuring <a href="http://www.pouet.net/prod.php?which=52761" target="_blank">Monjori by Mic</a></div>
+		<div id="info"><a href="http://threejs.org" target="_blank">three.js</a> - planets 3d demo <a >Vasiliy Stavenko</a></div>
 
 		<script src="js/three.min.js"></script>
 
@@ -43,6 +43,8 @@
 		<script src="js/controls/OrbitControls.js"></script>
         
 		<script src="js/libs/stats.min.js"></script>
+
+        <script src="color-0.5.0.min.js"></script>
 
 		<script id="vertexShader" type="x-shader/x-vertex">
             //uniform mat4 projectionMatrix;
@@ -156,53 +158,76 @@
                  };
         S.mu = S.M * G;
         
+        function rand(){
+            return (1-Math.random())*2
+        }
         function randomNormal(){
-            var n = new THREE.Vector3(Math.random(), Math.random(), Math.random());
+            var n = new THREE.Vector3(rand(), rand(), rand());
             n.normalize();
             return n;
         }
         // planets
         var rn = randomNormal();
+        var rnn = rn.clone();
+		
+		var hsl = new Color().hsl( Math.floor(Math.random() * 361), 50, 50);
         var planets = [{
+            size:0.3,
             orbit_normal : rn.clone(), // substitutes i and omega
             a: 30, // Large semiaxis
             e: 0.001, // eccentricity
             T: 20, // seconds
             dt: 3, // phase
-            Phi: 0 // Perihelium argument
+            Phi: 0, // Perihelium argument
+            color:new Color().hsl( Math.floor(Math.random() * 361), 50, 50)
         },
         
         {
+            size:0.6,
+            
             orbit_normal : rn.clone(), // substitutes i and omega
             a: 100, // Large semiaxis
             e: 0.1, // eccentricity
             T: 80, // seconds
             dt: 3, // phase
-            Phi: 0 // Perihelium argument
+            Phi: 0, // Perihelium argument
+            color:new Color().hsl( Math.floor(Math.random() * 361), 50, 50)
+            
         },
         {
+            size:1,
+            
             orbit_normal : rn.clone(), // substitutes i and omega
             a: 200, // Large semiaxis
             e: 0.1, // eccentricity
             T: 100, // seconds
             dt: 3, // phase
-            Phi: 0 // Perihelium argument
+            Phi: 0, // Perihelium argument
+            color:new Color().hsl( Math.floor(Math.random() * 361), 50, 50)
+            
         },
         {
-            orbit_normal : rn.clone(), // substitutes i and omega
+            size:3,
+            
+            orbit_normal : rnn.negate(), // substitutes i and omega
             a: 500, // Large semiaxis
             e: 0.1, // eccentricity
             T: 150, // seconds
             dt: 40, // phase
-            Phi: 0 // Perihelium argument
+            Phi: 0, // Perihelium argument
+            color:new Color().hsl( Math.floor(Math.random() * 361), 50, 50)
+            
         },
         {
+            size:1,
             orbit_normal : randomNormal(), // substitutes i and omega
             a: 500, // Large semiaxis
             e: 0.9, // eccentricity
             T: 70, // seconds
             dt: 40, // phase
-            Phi: 0 // Perihelium argument
+            Phi: 0, // Perihelium argument
+            color:new Color().hsl( Math.floor(Math.random() * 361), 50, 50)
+            
         },
         /*{
             orbit_normal : randomNormal(), // substitutes i and omega
@@ -217,30 +242,34 @@
 
         function getRotationMatrix(normal){
             // rotation relative to z axis;
-            var Z = new THREE.Vector3(0,1,0);
+            var Z = new THREE.Vector3(0,0,1);
             var n = normal.clone();
             // console.log(n.length(), Z.length());
             
-            var axis = n.cross(Z);
+            var axis = Z.clone().cross(n);
             n = normal.clone();
-            var angl = Math.acos(n.dot(Z));
+            var angl = Math.acos(Z.dot(n));
             var m = new THREE.Matrix4();
+            // console.log(m.toArray());
             m.makeRotationAxis(axis, angl);
             return m;
             
         }
         function drawOrbitPlane(planet){
             var geometry = new THREE.PlaneGeometry( 1000, 1000 );
-            var material = new THREE.MeshNormalMaterial( {color: 0x999900, 
+            var material = new THREE.MeshPhongMaterial( {color: 0xeeeeee, 
                                                           side: THREE.DoubleSide, 
-                                                          opacity:0.7,transparent: true,
-                                                          wireframe:true} );
+                                                          opacity:0.3,transparent: true,
+                                                          wireframe:false} );
             var plane = new THREE.Mesh( geometry, material );
-            plane.position = S.c.clone();
-            var m = getRotationMatrix(planet.orbit_normal);
-            // plane.scale.multiplyScalar(50);
             
-            plane.quaternion.setFromRotationMatrix(m);
+            var m = getRotationMatrix(planet.orbit_normal);
+            
+            plane.rotation.setFromRotationMatrix(m,"XYZ");
+            
+            plane.scale.set(1,1,1) // .multiplyScalar(50);
+            plane.position = S.c.clone();
+            
             return plane;
             // scene.add( plane );
         }
@@ -302,8 +331,8 @@
             var q = new THREE.Quaternion();
             q.setFromRotationMatrix(m)
             var pos = planetPlaneCoords(planet);
-            pos.applyQuaternion(q);
-            scenePlanets[i].position  = S.c.clone().add(pos);
+            // pos.applyQuaternion(q);
+            scenePlanets[i].position  = pos
             
         }
 
@@ -373,6 +402,7 @@
                 var mat = new THREE.MeshBasicMaterial();
                 var sun = new THREE.Mesh(sun_geom, mat);
                 sun.scale.multiplyScalar(0.5);
+                sun.position = S.c
                 scene.add(sun);
                 
                 
@@ -386,11 +416,11 @@
                     scene.add(pl);
                     
                     
-    				var geom = new THREE.SphereGeometry(  );
-                    var mat = new THREE.MeshBasicMaterial( {color: 0xff0000});
+    				var geom = new THREE.SphereGeometry( 50, 32, 32 );
+                    var mat = new THREE.MeshBasicMaterial( {color: planet.color.hexString()});
                     var pl_  = new THREE.Mesh(geom, mat);
-                    pl_.scale.multiplyScalar( 0.1);
-                    scene.add(pl_);
+                    pl_.scale.multiplyScalar( planet.size * 0.15);
+                    pl.add(pl_);
                     scenePlanets.push(pl_);
                     
                     
