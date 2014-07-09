@@ -327,8 +327,8 @@
             eu.setFromRotationMatrix( m, "XYZ" );
             q.setFromRotationMatrix(m)
             var pos = planetPlaneCoords(planet);
-            pos.applyEuler(eu);
-            // pos.applyQuaternion(q);
+            //pos.applyEuler(eu);
+            pos.applyQuaternion(q);
             scenePlanets[i].position  = pos.add(S.c);
             
         }
