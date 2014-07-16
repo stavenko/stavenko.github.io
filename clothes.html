@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 	<head>
-		<title>Planets with Keppler orbits in 3d [Monjori]</title>
+		<title>CLothes dressing test [Monjori]</title>
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
 		<style>
@@ -150,7 +150,13 @@
                 jsonLoader.load("models/M.js", function(geom, mats){
                     //console.log( mats);
                     
-                    var mat = new THREE.MeshFaceMaterial(mats);
+                    var mat = new THREE.MeshPhongMaterial({
+                        color: 0x000000, 
+                        ambient: 0x000000, // should generally match color
+                        specular: 0x050505,
+                        shininess: 1000
+                        
+                    });
                     var mesh = new THREE.Mesh(geom, mat);
                     // console.log("OK");
                     mesh.position = mesh_pos;
