@@ -167,91 +167,99 @@
             return n;
         }
         // planets
+        var normals;
+        var planets;
+       
         var rn = randomNormal();
         var rnn = rn.clone();
 		
-		var hsl = new Color().hsl( Math.floor(Math.random() * 361), 50, 50);
-        var planets = [{
-            size:0.3,
-            orbit_normal : rn.clone(), // substitutes i and omega
-            a: 30, // Large semiaxis
-            e: 0.001, // eccentricity
-            T: 20, // seconds
-            dt: 3, // phase
-            Phi: 0, // Perihelium argument
-            color:new Color().hsl( Math.floor(Math.random() * 361), 50, 50)
-        },
+        var initPlanets = function(){
+            var rn = normals[Math.floor(Math.random() * normals.length)];
+            var rnn = rn.clone();
+    		var hsl = new Color().hsl( Math.floor(Math.random() * 361), 50, 50);
+            planets = [{
+                size:0.3,
+                orbit_normal : rn.clone(), // substitutes i and omega
+                a: 30, // Large semiaxis
+                e: 0.001, // eccentricity
+                T: 20, // seconds
+                dt: 3, // phase
+                Phi: 0, // Perihelium argument
+                color:new Color().hsl( Math.floor(Math.random() * 361), 50, 50)
+            },
         
-        {
-            size:0.6,
+            {
+                size:0.6,
             
-            orbit_normal : rn.clone(), // substitutes i and omega
-            a: 100, // Large semiaxis
-            e: 0.1, // eccentricity
-            T: 80, // seconds
-            dt: 3, // phase
-            Phi: 0, // Perihelium argument
-            color:new Color().hsl( Math.floor(Math.random() * 361), 50, 50)
+                orbit_normal : rn.clone(), // substitutes i and omega
+                a: 100, // Large semiaxis
+                e: 0.1, // eccentricity
+                T: 80, // seconds
+                dt: 3, // phase
+                Phi: 0, // Perihelium argument
+                color:new Color().hsl( Math.floor(Math.random() * 361), 50, 50)
             
-        },
-        {
-            size:1,
+            },
+            {
+                size:1,
             
-            orbit_normal : rn.clone(), // substitutes i and omega
-            a: 200, // Large semiaxis
-            e: 0.1, // eccentricity
-            T: 100, // seconds
-            dt: 3, // phase
-            Phi: 0, // Perihelium argument
-            color:new Color().hsl( Math.floor(Math.random() * 361), 50, 50)
+                orbit_normal : rn.clone(), // substitutes i and omega
+                a: 200, // Large semiaxis
+                e: 0.1, // eccentricity
+                T: 100, // seconds
+                dt: 3, // phase
+                Phi: 0, // Perihelium argument
+                color:new Color().hsl( Math.floor(Math.random() * 361), 50, 50)
             
-        },
-        {
-            size:3,
+            },
+            {
+                size:3,
             
-            orbit_normal : rnn.negate(), // substitutes i and omega
-            a: 500, // Large semiaxis
-            e: 0.8, // eccentricity
-            T: 14, // seconds
-            dt: 7, // phase
-            Phi: 0, // Perihelium argument
-            color:new Color().hsl( Math.floor(Math.random() * 361), 50, 50)
+                orbit_normal : rnn.negate(), // substitutes i and omega
+                a: 500, // Large semiaxis
+                e: 0.8, // eccentricity
+                T: 14, // seconds
+                dt: 7, // phase
+                Phi: 0, // Perihelium argument
+                color:new Color().hsl( Math.floor(Math.random() * 361), 50, 50)
             
-        },
-        {
-            size:3,
+            },
+            {
+                size:3,
             
-            orbit_normal : rnn.negate(), // substitutes i and omega
-            a: 500, // Large semiaxis
-            e: 0.8, // eccentricity
-            T: 14, // seconds
-            dt: 7, // phase
-            Phi: Math.PI, // Perihelium argument
-            color:new Color().hsl( Math.floor(Math.random() * 361), 50, 50)
+                orbit_normal : rnn.negate(), // substitutes i and omega
+                a: 500, // Large semiaxis
+                e: 0.8, // eccentricity
+                T: 14, // seconds
+                dt: 7, // phase
+                Phi: Math.PI, // Perihelium argument
+                color:new Color().hsl( Math.floor(Math.random() * 361), 50, 50)
             
-        },
+            },
         
-        {
-            size:1,
-            orbit_normal : randomNormal(), // substitutes i and omega
-            a: 1000, // Large semiaxis
-            e: 0.99, // eccentricity
-            T: 140, // seconds
-            dt: 40, // phase
-            Phi: Math.PI/2, // Perihelium argument
-            color:new Color().hsl( Math.floor(Math.random() * 361), 50, 50)
+            {
+                size:1,
+                orbit_normal : randomNormal(), // substitutes i and omega
+                a: 1000, // Large semiaxis
+                e: 0.99, // eccentricity
+                T: 140, // seconds
+                dt: 40, // phase
+                Phi: Math.PI/2, // Perihelium argument
+                color:new Color().hsl( Math.floor(Math.random() * 361), 50, 50)
             
-        },
-        /*{
-            orbit_normal : randomNormal(), // substitutes i and omega
-            a: 400, // Large semiaxis
-            e: 0.2, // eccentricity
-            T: 50, // seconds
-            dt: 3, // phase
-            Phi: 0, // Perihelium argument
-            // P: 50 // Parihelium distanse
-        }*/
-        ]
+            },
+            /*{
+                orbit_normal : randomNormal(), // substitutes i and omega
+                a: 400, // Large semiaxis
+                e: 0.2, // eccentricity
+                T: 50, // seconds
+                dt: 3, // phase
+                Phi: 0, // Perihelium argument
+                // P: 50 // Parihelium distanse
+            }*/
+            ]
+            
+        }
 
         function getRotationMatrix(normal){
             // rotation relative to z axis;
@@ -413,7 +421,24 @@
                 sun.position = S.c
                 scene.add(sun);
                 
+                var ng = new THREE.SphereGeometry( 1, 10, 5, 0, 2* Math.PI, 0, Math.PI/2 );
                 
+                normals = ng.vertices;
+                var lmaterial = new THREE.LineBasicMaterial({
+                	color: 0xffffff
+                });
+                for(var i = 0; i< normals.length; i++){
+                    var geometry = new THREE.Geometry();
+                    geometry.vertices.push( new THREE.Vector3( 0, 0, 0 ) );
+                    var nn = normals[i].clone().multiplyScalar(100)
+                    geometry.vertices.push( nn );
+                    var line = new THREE.Line( geometry, lmaterial );
+                    sun.add( line );
+                    
+                } 
+                console.log(normals.length);
+                
+                initPlanets();
                 
                 for(var i = 0; i < planets.length; i++){
                     
@@ -422,6 +447,7 @@
                     var pl = drawOrbitPlane(planet);
                     
                     scene.add(pl);
+                    
                     
                     
     				var geom = new THREE.SphereGeometry( 50, 32, 32 );
@@ -436,6 +462,9 @@
                     
                     
                 }
+                
+               
+                
                 
                 /*
                 

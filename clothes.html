@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>Planets with Keppler orbits in 3d [Monjori]</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<style>
+			body {
+				color: #ffffff;
+				font-family:Monospace;
+				font-size:13px;
+				text-align:center;
+				font-weight: bold;
+
+				background-color: #000000;
+				margin: 0px;
+				overflow: hidden;
+			}
+
+			#info {
+				position: absolute;
+				top: 0px; width: 100%;
+				padding: 5px;
+			}
+
+			a {
+
+				color: #ffffff;
+			}
+
+			#oldie a { color:#da0 }
+		</style>
+	</head>
+	<body>
+
+		<div id="container"></div>
+		<div id="info"><a href="http://threejs.org" target="_blank">three.js</a> - multiple texturing map <a >Vasiliy Stavenko</a></div>
+
+		<script src="js/three.min.js"></script>
+
+		<script src="js/Detector.js"></script>
+        
+		<script src="js/controls/OrbitControls.js"></script>
+        
+		<script src="js/libs/stats.min.js"></script>
+
+        <script src="color-0.5.0.min.js"></script>
+		
+
+		<script>
+        
+       
+
+			if ( ! Detector.webgl ) Detector.addGetWebGLMessage();
+
+			var container, stats;
+
+			var camera, scene, mesh, mesh2, renderer, scenePlanets = [];
+            var mouseX=10, mouseY=20;
+
+			var uniforms;
+
+			init();
+            
+			animate();
+			
+			function init() {
+				renderer = new THREE.WebGLRenderer({
+                    antialias:true,
+                    alpha: true
+                });
+				container = document.getElementById( 'container' );
+
+				camera = new THREE.PerspectiveCamera( 40, window.innerWidth / window.innerHeight, 1, 100000 );
+				camera.position.y = 200 ;
+				camera.position.x = 20 ;
+				camera.position.z = 200;
+                // camera.lookAt(0,100,0);
+                
+
+				scene = new THREE.Scene();
+
+            	// EVENTS
+            	// THREEx.WindowResize(renderer, camera);
+            	// THREEx.FullScreen.bindKey({ charCode : 'm'.charCodeAt(0) });
+            	// CONTROLS
+            	controls = new THREE.OrbitControls( camera, renderer.domElement );
+            	// STATS
+            	stats = new Stats();
+            	stats.domElement.style.position = 'absolute';
+            	stats.domElement.style.bottom = '0px';
+            	stats.domElement.style.zIndex = 100;
+            	container.appendChild( stats.domElement );
+            	// LIGHT
+                
+            	//var light = new THREE.AmbientLight(0x444444);
+            	// light.position.set(100,130,100);
+            	//scene.add(light);
+                
+            	var light = new THREE.PointLight(0xffffff, 0.7);
+            	light.position.set(100,130,100);
+                light.position.multiplyScalar(50);
+            	scene.add(light);
+                
+            	var light = new THREE.PointLight(0xffffff,.7);
+            	light.position.set(-100,130,100);
+                light.position.multiplyScalar(50);
+                
+            	scene.add(light);
+                
+            	// FLOOR
+            	var floorTexture = new THREE.ImageUtils.loadTexture( 'textures/checkerboard.jpg' );
+            	floorTexture.wrapS = floorTexture.wrapT = THREE.RepeatWrapping; 
+            	floorTexture.repeat.set( 10, 10 );
+            	var floorMaterial = new THREE.MeshBasicMaterial( { map: floorTexture, side: THREE.DoubleSide, transparent:true, opacity:0.5 } );
+            	var floorGeometry = new THREE.PlaneGeometry(1000, 1000, 10, 10);
+            	var floor = new THREE.Mesh(floorGeometry, floorMaterial);
+            	floor.position.y = -0.5;
+            	floor.rotation.x = Math.PI / 2;
+            	//scene.add(floor);
+            	// SKYBOX/FOG
+            	var skyBoxGeometry = new THREE.BoxGeometry( 100000, 100000, 100000 );
+            	var skyBoxMaterial = new THREE.MeshBasicMaterial( { color: 0xeeeeee, side: THREE.BackSide } );
+            	var skyBox = new THREE.Mesh( skyBoxGeometry, skyBoxMaterial );
+            	scene.add(skyBox);
+            	// scene.fog = new THREE.FogExp2( 0x9999ff, 0.00025 );
+                
+                // SUN
+				//var sun_geom = new THREE.SphereGeometry(50,32,32  );
+                //var mat = new THREE.MeshBasicMaterial();
+                //var sun = new THREE.Mesh(sun_geom, mat);
+                // sun.scale.multiplyScalar(0.5);
+                //sun.position = S.c
+                //scene.add(sun);
+                
+                var mesh_pos = new THREE.Vector3(0,-50,0);
+                
+                var jsonLoader = new THREE.JSONLoader()
+                jsonLoader.load("models/M.js", function(geom, mats){
+                    //console.log( mats);
+                    
+                    var mat = new THREE.MeshFaceMaterial(mats);
+                    var mesh = new THREE.Mesh(geom, mat);
+                    // console.log("OK");
+                    mesh.position = mesh_pos;
+                    scene.add(mesh);
+                })
+                jsonLoader.load("models/S.js", function(geom, mats){
+
+                    geom.computeTangents();
+                    var smat = makeSMaterial(mats[0]);
+                    var bmat = new THREE.MeshBasicMaterial()
+                    var mat = new THREE.MeshFaceMaterial(mats);
+                    var mesh = new THREE.Mesh(geom, smat);
+                    mesh.position = mesh_pos;
+                    
+                    // console.log("OK");
+                    scene.add(mesh);
+                })
+              
+               
+                function makeSMaterial( lambr ){
+                    
+                    // console.log(lambr);
+                    var ambient = new THREE.Color(0.7740, 0.3122, 0.5514),
+                        diffuse = new THREE.Color(0.8349, 0.3368, 0.5948),
+                        specular = new THREE.Color(0, 0, 0),
+                        shininess = 3, 
+                        scale = 23;
+                    
+                    var shader = THREE.ShaderLib[ "normalmap" ];
+                    var uniforms = THREE.UniformsUtils.clone( shader.uniforms );
+
+                    //uniforms[ "enableAO" ].value = false;
+                    //uniforms[ "enableReflection" ].value = false;
+                    uniforms[ "enableDisplacement" ].value = true;
+                    uniforms[ "enableDiffuse" ].value = true;
+                    uniforms[ "enableSpecular" ].value = true;
+                    
+
+                    uniforms[ "tNormal" ].value = THREE.ImageUtils.loadTexture( "models/S/normal.png" );
+                    //uniforms[ "tAO" ].value = THREE.ImageUtils.loadTexture( "textures/normal/ninja/ao.jpg" );
+
+                    uniforms[ "tDisplacement" ].value = THREE.ImageUtils.loadTexture( "models/S/disp.png" );
+                    uniforms[ "uDisplacementBias" ].value =  -0.1; //- 0.428408;;
+                    uniforms[ "uDisplacementScale" ].value = 0.1;
+                    //uniforms[ "uDisplacementBias" ].value = - 0.428408;
+                    //uniforms[ "uDisplacementScale" ].value = 2.436143;
+                    
+                    uniforms[ 'tDiffuse'].value = THREE.ImageUtils.loadTexture( "models/S/diffuse.png" );
+                    uniforms[ 'tSpecular'].value = THREE.ImageUtils.loadTexture( "models/S/spec.png" );
+
+                    // uniforms[ "uNormalScale" ].value.y = 1;
+
+                    uniforms[ "diffuse" ].value = diffuse ;
+                    uniforms[ "specular" ].value = specular 
+                    uniforms[ "ambient" ].value = ambient ;
+
+                    uniforms[ "shininess" ].value = shininess;
+
+                    //uniforms[ "tCube" ].value = reflectionCube;
+                    //uniforms[ "reflectivity" ].value = 0.1;
+
+                    //uniforms[ "diffuse" ].value.convertGammaToLinear();
+                    //uniforms[ "specular" ].value.convertGammaToLinear();
+                    //uniforms[ "ambient" ].value.convertGammaToLinear();
+
+
+                    var parameters = { fragmentShader: shader.fragmentShader, vertexShader: shader.vertexShader, uniforms: uniforms, lights: true, fog: false };
+                    var material1 = new THREE.ShaderMaterial( parameters );
+                    return material1
+                    
+                }
+                
+                
+				container.appendChild( renderer.domElement );
+
+				stats = new Stats();
+				stats.domElement.style.position = 'absolute';
+				stats.domElement.style.top = '0px';
+				container.appendChild( stats.domElement );
+
+				onWindowResize();
+
+				
+
+			}
+
+	
+			function animate() {
+
+				requestAnimationFrame( animate );
+                time = new Date().getTime();
+				render();
+				stats.update();
+
+			}
+
+			function render() {
+
+                var v = new THREE.Vector3(0,75,0);
+                camera.lookAt(v);
+                
+				renderer.render( scene, camera );
+
+			}
+            
+			function onWindowResize() {
+               
+
+				windowHalfX = window.innerWidth / 2;
+				windowHalfY = window.innerHeight / 2;
+
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+
+	
+				renderer.setSize( window.innerWidth, window.innerHeight );
+
+			}
+            
+
+			function onDocumentMouseMove( event ) {
+
+				mouseX = ( event.clientX - windowHalfX ) /5;
+				mouseY = ( event.clientY - windowHalfY ) /5;
+
+			}
+            document.addEventListener('mouseup', function(e){
+                // console.log("set",new Date().getTime() - 1403660000000);
+                //uniforms.beg_time.value = new Date().getTime()- 1403660000000;
+            }, false);
+
+		</script>
+
+	</body>
+</html>
