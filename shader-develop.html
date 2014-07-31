@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>three.js webgl - shader [Monjori]</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<style>
+			body {
+				color: #ffffff;
+				font-family:Monospace;
+				font-size:13px;
+				text-align:center;
+				font-weight: bold;
+
+				background-color: #000000;
+				margin: 0px;
+				overflow: hidden;
+			}
+
+			#info {
+				position: absolute;
+				top: 0px; width: 100%;
+				padding: 5px;
+			}
+
+			a {
+
+				color: #ffffff;
+			}
+
+			#oldie a { color:#da0 }
+		</style>
+	</head>
+	<body onload = "start()">
+
+		<div id="container"></div>
+		<div id="info"><a href="http://threejs.org" target="_blank">three.js</a> - shader demo. featuring <a href="http://www.pouet.net/prod.php?which=52761" target="_blank">Monjori by Mic</a></div>
+
+		<script src="js/three.min.js"></script>
+        <script src="js/libs/three_monkey/customWebGLRenderer.js"></script>
+        
+        
+        <script src="js/libs/tween.min.js"></script>
+
+        <script src="js/Detector.js"></script>
+        
+		<script src="js/controls/OrbitControls.js"></script>
+        
+		<script src="js/libs/stats.min.js"></script>
+
+        <script src="js/libs/CopyShader.js"></script>
+        <script src="js/libs/BlendShader.js"></script>
+        <script src="js/libs/EffectComposer.js"></script>
+        <script src="js/libs/ShaderPass.js"></script>
+        <script src="js/libs/RenderPass.js"></script>
+        
+
+        
+        <script src="js/libs/VelocityShader.js"></script>
+        <script src="js/libs/PerObjectBlurShader.js"></script>
+        <script src="js/libs/VelocityPass.js"></script>
+
+        <script src="js/libs/SavePass.js"></script>
+
+        <script src="js/libs/DotScreenShader.js"></script>
+        <script src="js/libs/RGBShiftShader.js"></script>
+
+
+
+
+        <script type="x-shader/x-vertex" id ="vs-rangeBasedScale">
+            uniform float speed;
+            uniform mat4 prevModelView;
+            varying vec2 vUv;
+            varying float aa;
+            float max = 0.01;
+            float speed_ = 10.;
+            float y0 = 0.;
+            float h = 10.;
+            
+            vec3 axis = vec3(1,0,0);
+            
+            mat4 rotationMatrix(vec3 axis, float angle)
+            {
+                axis = normalize(axis);
+                float s = sin(angle);
+                float c = cos(angle);
+                float oc = 1.0 - c;
+    
+                return mat4(oc * axis.x * axis.x + c,           oc * axis.x * axis.y - axis.z * s,  oc * axis.z * axis.x + axis.y * s,  0.0,
+                            oc * axis.x * axis.y + axis.z * s,  oc * axis.y * axis.y + c,           oc * axis.y * axis.z - axis.x * s,  0.0,
+                            oc * axis.z * axis.x - axis.y * s,  oc * axis.y * axis.z + axis.x * s,  oc * axis.z * axis.z + c,           0.0,
+                            0.0,                                0.0,                                0.0,                                1.0);
+            }
+
+            void main(){
+                float l = 1.;
+                speed_ = speed;
+                if(speed_ > max){
+                    speed_ = max;
+                }
+                speed_ = speed_/max;
+                
+                float alpha =  ((y0 - position.y)/100.*speed_);
+                
+                aa = abs(position.y)/150. *speed_;
+                
+                if(position.z < 0.0){
+                    alpha = -alpha;
+                }
+
+                mat4 rot = rotationMatrix( axis, alpha );
+                vec4 pos = rot * vec4(position, 1.0);
+                pos.y = position.y;
+
+                gl_Position = projectionMatrix * modelViewMatrix * pos;
+                vUv = uv;
+
+
+            }
+
+        </script>
+
+        <script id="fragmentShaderBlurring" type="x-shader/x-fragment">
+
+			uniform vec2 resolution;
+			uniform float time;
+            uniform float cur_time;
+            uniform float beg_time;
+
+            varying float aa;
+            varying vec2 vUv;
+
+			void main()	{
+
+				//vec2 p = -1.0 + 2.0 * gl_FragCoord.xy / resolution.xy;
+				// vec2 p = -1.0 + 2.0 * vUv;
+                float full_time = 5000.;
+
+                float time_left = cur_time - beg_time;
+                float expl_step0 = 0.;
+                float expl_step1 = 0.3;
+                float expl_max   = 1.;
+
+                float as0 = 0.;
+                float as1 = 1.;
+                float as2 = 0.;
+
+
+                float time_perc = clamp( (time_left / full_time), 0., 1. ) ;
+                // float time_perc = time_left / full_time;
+                float alphap;
+                alphap = mix(as0,as1, smoothstep(expl_step0, expl_step1, time_perc));
+                alphap = mix(alphap,as2, smoothstep(expl_step1, expl_max, time_perc));
+
+
+                vec2 p = vUv;
+                vec2 c = vec2(0.5, 0.5);
+                float max_g = 1.;
+                float dist = length(p - c) * 2. ;
+
+                float step1 = 0.;
+                float step2 = 0.2;
+                float step3 = 0.3;
+
+                vec4 color;
+                float a0 = 1.;
+                float a1 = 1.;
+                float a2 = 0.7;
+                float a3 = 0.0;
+
+
+                vec4 c0 = vec4(1., 1., 1., a0 * alphap);
+                vec4 c1 = vec4(0.9, 0.9, 1., a1 * alphap);
+                vec4 c2 = vec4(0.7, 0.7, 1., a2 * alphap);
+                vec4 c3 = vec4(0., 0., 0., 0.);
+
+
+
+                color = mix(c0, c1, smoothstep(step1, step2, dist));
+                color = mix(color, c2, smoothstep(step2, step3, dist));
+                color = mix(color, c3, smoothstep(step3, max_g, dist));
+
+
+                // color = mix(c0, c3, smoothstep(step3, max_g, dist));
+
+
+
+                gl_FragColor = color; // mix(fhcol , vec4(1., 1., 1., 1.),dist);
+                gl_FragColor[3] = 1.- aa;
+
+
+			}
+
+		</script>
+
+
+
+
+
+        <script type="x-shader/x-vertex" id="vs-motionBlur">
+
+			varying vec2 vUv;
+
+			void main() {
+
+				vec4 mvPosition = modelViewMatrix * position;
+				gl_Position = projectionMatrix * mvPosition;
+				vUv = uv;
+
+			}
+
+		</script>
+
+
+        <script type="x-shader/x-fragment" id="fs-motionBlur">
+
+			varying vec2 vUv;
+			uniform sampler2D tDiffuse;
+			uniform sampler2D tColor;
+			uniform vec2 resolution;
+			uniform mat4 viewProjectionInverseMatrix;
+			uniform mat4 previousViewProjectionMatrix;
+
+			float unpack_depth(const in vec4 color) {
+				return ( color.r * 256. * 256. * 256. + color.g * 256. * 256. + color.b * 256. + color.a ) / ( 256. * 256. * 256. );
+			}
+
+			void main() {
+
+				float zOverW = unpack_depth( texture2D( tDiffuse, vUv ) );
+
+				// H is the viewport position at this pixel in the range -1 to 1.
+				vec4 H = vec4( vUv.x * 2. - 1., vUv.y * 2. - 1., zOverW, 1. );
+				// Transform by the view-projection inverse.
+				vec4 D = H * viewProjectionInverseMatrix;
+				// Divide by w to get the world position.
+				vec4 worldPos = D / D.w;
+
+				vec4 currentPos = H;
+				// Use the world position, and transform by the previous view-projection matrix.
+				vec4 previousPos = worldPos * previousViewProjectionMatrix;
+				// Convert to nonhomogeneous points [-1,1] by dividing by w.
+				previousPos /= previousPos.w;
+				// Use this frame's position and last frame's to compute the pixel velocity.
+				vec2 velocity = ( currentPos.xy - previousPos.xy ) / .5;
+
+				vec4 finalColor = vec4( 0. );
+				vec2 offset = vec2( 0. );
+				float weight = 0.;
+				const int samples = 20;
+				for( int i = 0; i < samples; i++ ) {
+	      			offset = velocity * ( float( i ) / ( float( samples ) - 1. ) - .5 );
+					finalColor += texture2D( tColor, vUv + offset );
+				}
+				finalColor /= float( samples );
+				gl_FragColor = vec4( finalColor.rgb, 1. );
+				//gl_FragColor = vec4( vec3( zOverW ), 1. );
+
+			}
+
+		</script>
+
+
+        <script id="vertexShader" type="x-shader/x-vertex">
+            //uniform mat4 projectionMatrix;
+            varying vec2 vUv;
+            uniform vec3 scale;
+            
+			void main()	{
+				vUv = uv;
+                float rotation = 0.0;
+                
+                vec3 alignedPosition = vec3(position.x * scale.x, position.y * scale.y, position.z*scale.z);
+
+                vec2 pos = alignedPosition.xy;
+                
+				vec2 rotatedPosition;
+				rotatedPosition.x = cos( rotation ) * alignedPosition.x - sin( rotation ) * alignedPosition.y;
+				rotatedPosition.y = sin( rotation ) * alignedPosition.x + cos( rotation ) * alignedPosition.y;
+                
+				vec4 finalPosition;
+				
+				finalPosition = modelViewMatrix * vec4( 0.0, 0.0, 0.0, 1.0 );
+                finalPosition.xy += rotatedPosition;
+                finalPosition = projectionMatrix * finalPosition;
+                
+                gl_Position =  finalPosition;
+
+			}
+
+		</script>
+
+
+
+        <script id="fragmentShader" type="x-shader/x-fragment">
+
+			uniform vec2 resolution;
+			uniform float time;
+            uniform float cur_time;
+            uniform float beg_time;
+            
+            varying vec2 vUv;
+
+			void main()	{
+
+				//vec2 p = -1.0 + 2.0 * gl_FragCoord.xy / resolution.xy;
+				// vec2 p = -1.0 + 2.0 * vUv;
+                float full_time = 5000.;
+                
+                float time_left = cur_time - beg_time;
+                float expl_step0 = 0.;
+                float expl_step1 = 0.3;
+                float expl_max   = 1.;
+                
+                float as0 = 0.;
+                float as1 = 1.;
+                float as2 = 0.;
+                
+                
+                float time_perc = clamp( (time_left / full_time), 0., 1. ) ;
+                // float time_perc = time_left / full_time;
+                float alphap; 
+                alphap = mix(as0,as1, smoothstep(expl_step0, expl_step1, time_perc));
+                alphap = mix(alphap,as2, smoothstep(expl_step1, expl_max, time_perc));
+                
+                
+                vec2 p = vUv;
+                vec2 c = vec2(0.5, 0.5);
+                float max_g = 1.;
+                float dist = length(p - c) * 2. ;
+                
+                float step1 = 0.;
+                float step2 = 0.2;
+                float step3 = 0.3;
+				
+                vec4 color;
+                float a0 = 1.;
+                float a1 = 1.;
+                float a2 = 0.7;
+                float a3 = 0.0;
+                
+                
+                vec4 c0 = vec4(1., 1., 1., a0 * alphap);
+                vec4 c1 = vec4(0.9, 0.9, 1., a1 * alphap);
+                vec4 c2 = vec4(0.7, 0.7, 1., a2 * alphap);
+                vec4 c3 = vec4(0., 0., 0., 0.);
+                
+                
+                
+                color = mix(c0, c1, smoothstep(step1, step2, dist));
+                color = mix(color, c2, smoothstep(step2, step3, dist));
+                color = mix(color, c3, smoothstep(step3, max_g, dist));
+
+
+                // color = mix(c0, c3, smoothstep(step3, max_g, dist));
+                
+                
+                
+                gl_FragColor = color; // mix(fhcol , vec4(1., 1., 1., 1.),dist);
+                
+				//gl_FragColor = mix(vec4(1.0, .0, .0, 1.0) , vec4(1., 0., 0., 0.), dist);
+
+			}
+
+		</script>
+
+		<script>
+        
+        
+        
+        Object.defineProperty(THREE.Object3D.prototype, "prop", {get: function(){
+            console.log("Obj", this.position);
+            return 42;
+            
+        }})
+
+        var startRotation = function(){
+            is_rotated = true;
+        }
+        var stopRotation = function(){
+            is_rotated = false;
+            speed = 0;
+
+        }
+
+        var rotation = function(time){
+            if(is_rotated){
+                var rot = (2*Math.PI) * time *speed;
+                rotatedObject.rotation.x = rot;
+                // console.log(rot);
+                speed += 0.000002;
+            }
+
+        }
+
+        var run = function(){
+            var plane_normal = new THREE.Vector3(0,1,0);
+            var ray = new THREE.Vector3(0.5 - Math.random(),  Math.random(), 0.5 - Math.random());
+            ray.normalize();
+            initBloodFountain( ray, plane_normal, new THREE.Vector3(0,25,0) );
+
+
+            var material = new THREE.LineBasicMaterial({
+                color: 0x0000ff
+            });
+
+
+        }
+        var splat_tex = THREE.ImageUtils.loadTexture( "textures/blood-splat.png" );
+
+
+        function initBloodFountain(ray, plane_normal, startsIn ){
+                // amount of particles
+                // ray is a three.js Vector, assumed to be normalized
+                var da = Math.PI / 360 * 60;
+                var dr = 50;
+                time = 2.5;
+
+
+
+                var mat = new THREE.MeshPhongMaterial({color:0xff0000, blending: THREE.AdditiveBlending})
+                var geom = new THREE.SphereGeometry(5,10,10);
+                var parts = [];
+                for(var i = 0; i< 20; i++){
+                    var target = ray.clone();
+                    var rAxis = new THREE.Vector3(Math.random(), Math.random(), Math.random());
+                    var da_ = Math.random() * da;
+
+                    target.applyAxisAngle(rAxis, da_);
+
+
+                    var dist = Math.random() * dr;
+                    target.multiplyScalar( dist );
+                    var fall = target.clone();
+                    fall.multiplyScalar( 2 );
+
+                    var fall_axis = plane_normal.clone().cross( fall.clone()).normalize();
+                    var fall_cos =  plane_normal.clone().dot(fall.clone().normalize());
+
+
+                    fall.applyAxisAngle(fall_axis, Math.PI/2 - Math.acos( fall_cos )   );
+
+                    (function(){
+
+                        var m = new THREE.Mesh(geom, mat);
+                        m.position.fromArray(startsIn.toArray());
+                        var partm =  {mesh: m,
+                            target:target,
+                            fall :fall
+                        };
+
+                        scene.add(partm.mesh);
+
+                        // console.log(partm.mesh);
+
+                        /*
+                        var tws = new TWEEN.Tween(partm.mesh.scale )
+                                .to({x:0.001, y:0.001, z:0.001}, dist * time * 2 )
+                                .start();
+                        */
+                        var tw = new TWEEN
+                                .Tween(partm.mesh.position)
+                                .to(partm.target, dist*time)
+                                .easing(TWEEN.Easing.Quadratic.Out)
+                                .start();
+                        //console.log("MESH", m.uuid)
+                        var tw1= new TWEEN.Tween(partm.mesh.position)
+                                .to(partm.fall, dist*time)
+                                .easing(TWEEN.Easing.Quadratic.In)
+                                .onComplete(function(){
+
+                                    //console.log("CHildren", m.uuid, scene.children.length, scene.children.indexOf(partm.mesh) )
+
+                                    scene.remove(partm.mesh);
+                                    // console.log(scene.children.length)
+
+                                    // Where the fall is - placing around several spots of blood;
+                                    var center = partm.fall.clone();
+                                    var shifts = 5;
+                                    for(var j=0; j < 2; j++){
+                                        (function(){
+                                            var pos = center.clone();
+                                            pos.x += shifts/2 - (Math.random()*shifts);
+                                            pos.z += shifts/2 - (Math.random()*shifts);
+
+
+                                            var spitGeom = new THREE.PlaneGeometry(5, 5, 1, 1);
+                                            var spitMat = new THREE.MeshBasicMaterial({
+                                                color: 0xff0000,
+                                                map: splat_tex,
+                                                // side: THREE.DoubleSide,
+                                                //  blending:THREE.AdditiveBlending,
+                                                transparent:true
+                                            })
+                                            var spit = new THREE.Mesh(spitGeom, spitMat);
+                                            spit.position = pos;
+                                            spit.position.y = -0.4;
+                                            spit.rotation.x = - Math.PI / 2;
+                                            scene.add(spit);
+                                            var tw = new TWEEN.Tween({})
+                                                    .to({}, 2000)
+                                                    .onComplete(function(){
+                                                        scene.remove(spit)
+                                                    })
+                                                    .start();
+
+                                        })()
+                                    }
+
+
+
+                                })
+                        tw.chain(tw1);
+
+                    })()
+
+
+                }
+            }
+
+			if ( ! Detector.webgl ) Detector.addGetWebGLMessage();
+
+			var container, stats, is_rotated = false, speed = 0, rotatedObject, rotationUni, velocityMat, currentFps, targetFps = 60, effectPerObjectBlur;
+
+			var camera, scene, mesh, mesh2, renderer, composer, time_min = 1403669999000;
+            var mouseX=10, mouseY=20;
+
+            var rotationBlurringShader;
+			var uniforms;
+
+            var start = function(){
+
+                init();
+
+                animate();
+
+            }
+
+
+			function init() {
+				renderer = new THREE.customWebGLRenderer({
+                    antialias:true,
+                    alpha: true
+                });
+                renderer.sortObjects = false;
+                renderer.setSize( window.innerWidth, window.innerHeight );
+                renderer.setClearColor( 0x000000 );
+
+                container = document.getElementById( 'container' );
+
+                container.appendChild( renderer.domElement );
+                // document.body.appendChild( renderer.domElement );
+
+                scene = new THREE.Scene();
+
+                camera = new THREE.PerspectiveCamera( 40, window.innerWidth / window.innerHeight, 1, 3000 );
+                camera.position.y = 500 ;
+                camera.position.x = 500 ;
+                camera.position.z = 200;
+                camera.lookAt(0,0,0);
+
+
+
+                var TT = Date.now();
+                time_min = TT - 10000;
+                // console.log(TT);
+
+
+
+            	// EVENTS
+            	// THREEx.WindowResize(renderer, camera);
+            	// THREEx.FullScreen.bindKey({ charCode : 'm'.charCodeAt(0) });
+            	// CONTROLS
+            	controls = new THREE.OrbitControls( camera, renderer.domElement );
+            	// STATS
+            	stats = new Stats();
+            	stats.domElement.style.position = 'absolute';
+            	stats.domElement.style.bottom = '0px';
+            	stats.domElement.style.zIndex = 100;
+            	container.appendChild( stats.domElement );
+            	// LIGHT
+
+
+                light = new THREE.DirectionalLight( 0xffffff, 0.5 );
+                light.position.set( - 1, - 1, - 1 );
+                scene.add( light );
+
+                light = new THREE.DirectionalLight( 0xffffff, 1.5 );
+                light.position.set( 1, 1, 1 );
+                scene.add( light );
+
+                // var light = new THREE.PointLight(0xffffff);
+            	// light.position.set(0,250,500);
+            	// scene.add(light);
+            	// FLOOR
+            	var floorTexture = new THREE.ImageUtils.loadTexture( 'textures/checkerboard.jpg' );
+            	floorTexture.wrapS = floorTexture.wrapT = THREE.RepeatWrapping; 
+            	floorTexture.repeat.set( 10, 10 );
+            	var floorMaterial = new THREE.MeshBasicMaterial( { map: floorTexture, side: THREE.DoubleSide } );
+            	var floorGeometry = new THREE.PlaneGeometry(1000, 1000, 10, 10);
+            	var floor = new THREE.Mesh(floorGeometry, floorMaterial);
+            	floor.position.y = -0.5;
+            	floor.rotation.x = - Math.PI / 2;
+            	scene.add(floor);
+            	// SKYBOX/FOG
+            	//var skyBoxGeometry = new THREE.BoxGeometry( 10000, 10000, 10000 );
+            	//var skyBoxMaterial = new THREE.MeshBasicMaterial( { color: 0x9999ff, side: THREE.BackSide } );
+            	//var skyBox = new THREE.Mesh( skyBoxGeometry, skyBoxMaterial );
+            	//scene.add(skyBox);
+            	// scene.fog = new THREE.FogExp2( 0x9999ff, 0.00025 );
+
+				var crateTexture = THREE.ImageUtils.loadTexture( 'textures/crate.gif' );
+
+                rotationUni = {
+                        speed: {type:'f', value:20.0},
+                        prevModelViewMatrix:{type:"m4", value: new THREE.Matrix4()},
+                        prevProjectionMatrix:{type:"m4", value: new THREE.Matrix4()},
+                        
+                    };
+                rotationBlurringShader = {
+                    vertexShader  :document.getElementById( 'vs-rangeBasedScale' ).textContent,
+                    fragmentShader : document.getElementById( 'fragmentShaderBlurring' ).textContent,
+                    uniforms: rotationUni,
+                    transparent: true
+                }
+
+                var crateMaterials = new THREE.ShaderMaterial(rotationBlurringShader);
+
+                var crateMaterial = new THREE.MeshPhongMaterial( { map: crateTexture, useScreenCoordinates: true, color: 0xff0000 } );
+                var h = 250;
+                var cubeGeom = new THREE.BoxGeometry(50, h, 50, 10,10,10);
+                /*
+                crateMaterial.customUniformUpdate = function(obj, mat){
+                    
+                    // console.log("gotcha");
+                    //console.log(">>",mat)
+                }*/
+                
+            	rotatedObject = new THREE.Mesh( cubeGeom, crateMaterial  );
+                console.log(rotatedObject.material);
+
+
+            	rotatedObject.position.set( 0, h/2, 0 );
+            	rotatedObject.scale.set( 1, 1, 1.0 ); // imageWidth, imageHeight
+                
+            	scene.add( rotatedObject );
+
+
+                
+                
+                // TODO Сделаем инициализацию объекта автоматом.
+                
+                
+                THREE.Mesh.prototype._updateMatrixWorld = rotatedObject.updateMatrixWorld;
+                THREE.Mesh.prototype._pass_complete = true;
+                
+                Object.defineProperty(THREE.Mesh.prototype, "updateMatrixWorld", {get: function(){
+                    // Сохраняем предыдующую матрицу перед тем как отрендерится кадр 
+                    // console.log("ooo", this._pass_complete);
+                    if(this._pass_complete){
+                        this._oldMatrix = this.matrixWorld.clone();
+                        this._pass_complete = false;
+                    }
+                    
+                    this._updateMatrixWorld();
+                    
+                    
+                    return (function(){
+                    });
+                    
+            
+                }})
+
+                rotatedObject.___name = "stick";
+                
+                
+                composer = new THREE.EffectComposer(renderer);
+
+                // console.log(" >>>" ,THREE.VelocityShader);
+                /*
+                velocityMat = new THREE.ShaderMaterial( THREE.VelocityShader );
+                
+                velocityMat.customUniformUpdate = function(obj, mat, _gl){
+                    
+                    // console.log("gotcha");
+                    var new_m = obj.matrixWorld;
+                    var differs = false;
+                    for(var i in new_m.elements ){
+                        var elem = new_m.elements[i];
+                        var oelem = obj._oldMatrix.elements[i];
+                        
+                        if( Math.abs(oelem - elem) > 0.0001){
+                            differs = true;
+                        }
+                        
+                    }
+                    // console.log("call");
+                    if(differs){
+                        console.log('diff!!', obj.___name);
+                    }
+                    // console.log("two", mat);
+                    var p_uniforms = mat.program.uniforms;
+                    
+                    var mvMatrix = camera.matrixWorldInverse.clone().multiplyMatrices(camera.matrixWorldInverse, obj._oldMatrix );
+                    
+                    _gl.uniformMatrix4fv( p_uniforms.prevModelViewMatrix, false,  mvMatrix.elements );
+                    _gl.uniformMatrix4fv( p_uniforms.prevProjectionMatrix, false, camera.projectionMatrix.elements );
+                    
+                }
+                
+                */
+               
+                composer.addPass( new THREE.RenderPass( scene, camera) );
+
+                var renderTargetParameters = {
+                    minFilter: THREE.LinearFilter,
+                    magFilter: THREE.LinearFilter,
+                    format: THREE.RGBFormat,
+                    stencilBuffer: false };
+
+                var SCREEN_WIDTH = window.innerWidth;
+                var SCREEN_HEIGHT = window.innerHeight;
+
+                var effectVelocity = new THREE.VelocityPass(scene, camera, new THREE.WebGLRenderTarget( SCREEN_WIDTH, SCREEN_HEIGHT, renderTargetParameters ) );
+
+                var effectBlend = new THREE.ShaderPass( THREE.BlendShader, "tDiffuse1" );
+                var effectSave  = new THREE.SavePass();
+                
+                
+                effectPerObjectBlur = new THREE.ShaderPass(THREE.PerObjectBlurShader, "tDiffuse1");
+                
+                effectPerObjectBlur.uniforms['tDiffuse2'].value = effectVelocity.renderTarget;
+                
+                effectPerObjectBlur.uniforms['velocityScale'].value = currentFps / targetFps;
+                effectPerObjectBlur.uniforms['textureSize'].value = new THREE.Vector2(SCREEN_WIDTH, SCREEN_HEIGHT);
+                
+
+                // console.log(effectVelocity.renderTarget);
+                effectBlend.uniforms[ 'tDiffuse2' ].value = effectSave.renderTarget;
+                effectBlend.uniforms[ 'mixRatio' ].value = 0.5;
+                
+                
+                
+
+                // var effect = new THREE.ShaderPass( THREE.DotScreenShader );
+                // effect.uniforms[ 'scale' ].value = 1;
+                // composer.addPass( effect );
+
+                
+                
+                // composer.addPass(effectSave);
+                
+                // composer.addPass(effectBlend);
+                
+                
+                
+                composer.addPass(effectVelocity);
+                composer.addPass(effectPerObjectBlur);
+                
+                effectPerObjectBlur.renderToScreen = true
+                
+                
+
+                var effect = new THREE.ShaderPass( THREE.RGBShiftShader );
+                effect.uniforms[ 'amount' ].value = 0.001;
+                effect.renderToScreen = true;
+
+                // composer.addPass( effect );
+
+
+                
+
+
+                //
+
+                //
+
+				stats = new Stats();
+				stats.domElement.style.position = 'absolute';
+				stats.domElement.style.top = '0px';
+				container.appendChild( stats.domElement );
+
+				// onWindowResize();
+
+				
+
+			}
+            var clock = new THREE.Clock();
+
+            
+			function animate(time ) {
+                var t = clock.getDelta();
+                // console.log(t, 1/t);
+                currentFps = 1 / t;
+
+				requestAnimationFrame( animate );
+
+				render();
+				stats.update();
+
+			}
+
+			function render() {
+
+                TWEEN.update();
+                rotationUni.speed.value = speed;
+                
+                // console.log("SPEED", speed)
+				//uniforms.time.value += 0.05;
+                effectPerObjectBlur.uniforms['velocityScale'].value = currentFps / targetFps;
+                
+                var t = new Date().getTime()- time_min;
+                rotation(t);
+                //scene.overrideMaterial = velocityMat;
+                
+                composer.render();
+				//renderer.render(  scene, camera );
+            
+                
+                
+                // rotationUni.prevModelView.value  = rotatedObject.modelViewMatrix; 
+
+			}
+            
+			function onWindowResize() {
+				//uniforms.resolution.value.x = window.innerWidth;
+				//uniforms.resolution.value.y = window.innerHeight;
+                
+
+				windowHalfX = window.innerWidth / 2;
+				windowHalfY = window.innerHeight / 2;
+
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+
+				//cameraCube.aspect = window.innerWidth / window.innerHeight;
+				//cameraCube.updateProjectionMatrix();
+
+				// renderer.setSize( window.innerWidth, window.innerHeight );
+
+			}
+            
+
+			function onDocumentMouseMove( event ) {
+
+				mouseX = ( event.clientX - windowHalfX ) /5;
+				mouseY = ( event.clientY - windowHalfY ) /5;
+
+
+            }
+        document.addEventListener("keydown", function(e){
+            if( e.keyCode === 32){
+                startRotation();
+            }
+        })
+        document.addEventListener("keyup", function(e){
+            if( e.keyCode === 32){
+                // run();
+                stopRotation();
+            }
+            // if(e.keyCode === )
+        })
+            document.addEventListener('mouseup', function(e){
+                // console.log("set",new Date().getTime() - 1403660000000);
+                // uniforms.beg_time.value = new Date().getTime()- time_min;
+            }, false);
+
+		</script>
+
+	</body >
+</html>

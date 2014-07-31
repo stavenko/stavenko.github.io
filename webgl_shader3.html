@@ -148,7 +148,7 @@
 
 			var container, stats;
 
-			var camera, scene, mesh, mesh2, renderer;
+			var camera, scene, mesh, mesh2, renderer, time_min;
             var mouseX=10, mouseY=20;
 
 			var uniforms;
@@ -163,6 +163,8 @@
                     alpha: true
                 });
 				container = document.getElementById( 'container' );
+                var TT = Date.now();
+                time_min = TT - 10000;
 
 				camera = new THREE.PerspectiveCamera( 40, window.innerWidth / window.innerHeight, 1, 3000 );
 				camera.position.y = 500 ;
@@ -173,10 +175,6 @@
 
 				scene = new THREE.Scene();
 
-            	// EVENTS
-            	// THREEx.WindowResize(renderer, camera);
-            	// THREEx.FullScreen.bindKey({ charCode : 'm'.charCodeAt(0) });
-            	// CONTROLS
             	controls = new THREE.OrbitControls( camera, renderer.domElement );
             	// STATS
             	stats = new Stats();
@@ -300,7 +298,7 @@
 			function render() {
 
 				//uniforms.time.value += 0.05;
-                uniforms.cur_time.value = new Date().getTime()- 1403660000000;
+                uniforms.cur_time.value = new Date().getTime()- time_min;
                 // console.log((new Date().getTime() - uniforms.beg_time.value)/100000. );
                 var sa = mesh.scale.toArray();
                 // console.log(sa);
@@ -343,8 +341,8 @@
 
 			}
             document.addEventListener('mouseup', function(e){
-                console.log("set",new Date().getTime() - 1403660000000);
-                uniforms.beg_time.value = new Date().getTime()- 1403660000000;
+                console.log("set",new Date().getTime() - time_min);
+                uniforms.beg_time.value = new Date().getTime()- time_min;
             }, false);
 
 		</script>

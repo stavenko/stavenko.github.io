@@ -165,6 +165,7 @@
                 jsonLoader.load("models/S.js", function(geom, mats){
 
                     geom.computeTangents();
+                    
                     var smat = makeSMaterial(mats[0]);
                     var bmat = new THREE.MeshBasicMaterial()
                     var mat = new THREE.MeshFaceMaterial(mats);
