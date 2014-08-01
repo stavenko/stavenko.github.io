@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>three.js webgl - shader [Monjori]</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<style>
+			body {
+				color: #ffffff;
+				font-family:Monospace;
+				font-size:13px;
+				text-align:center;
+				font-weight: bold;
+
+				background-color: #000000;
+				margin: 0px;
+				overflow: hidden;
+			}
+
+			#info {
+				position: absolute;
+				top: 0px; width: 100%;
+				padding: 5px;
+			}
+
+			a {
+
+				color: #ffffff;
+			}
+
+			#oldie a { color:#da0 }
+		</style>
+	</head>
+	<body>
+
+		<div id="container"></div>
+		<div id="info"><a href="http://threejs.org" target="_blank">three.js</a> - shader demo. featuring <a href="http://www.pouet.net/prod.php?which=52761" target="_blank">Monjori by Mic</a></div>
+
+		<script src="js/three.min.js"></script>
+
+		<script src="js/Detector.js"></script>
+        
+		<script src="js/controls/OrbitControls.js"></script>
+        
+		<script src="js/libs/stats.min.js"></script>
+
+		<script id="vTrailSprite" type="x-shader/x-vertex">
+        varying vec2 vUv;
+        uniform vec3 scale;
+        uniform int timeStarted;
+        uniform int timeCurrent;
+        uniform int timeLapsing;
+        
+		void main()	{
+            
+            float t = float(timeCurrent - timeStarted) / float(timeLapsing); // percentage of time we are on;
+            float t1 = 1.0 - t; // time left
+            if(t1 < 0.0){
+                t1 = 0.0;
+            }
+            
+            vec3 S = scale * t1;
+            
+			vUv = uv;
+            float rotation = 0.0;
+            
+            vec3 alignedPosition = vec3(position.x * S.x, position.y * S.y, position.z * S.z);
+
+            vec2 pos = alignedPosition.xy;
+            
+			vec2 rotatedPosition;
+			rotatedPosition.x = cos( rotation ) * alignedPosition.x - sin( rotation ) * alignedPosition.y;
+			rotatedPosition.y = sin( rotation ) * alignedPosition.x + cos( rotation ) * alignedPosition.y;
+            
+			vec4 finalPosition;
+			
+			finalPosition = modelViewMatrix * vec4( 0.0, 0.0, 0.0, 1.0 );
+            finalPosition.xy += rotatedPosition;
+            finalPosition = projectionMatrix * finalPosition;
+            
+            gl_Position =  finalPosition;
+
+		}
+
+		</script>
+
+		<script id="fTrailSprite" type="x-shader/x-fragment">
+
+		varying vec2 vUv;
+
+		void main() {
+            
+            vec2 p = vUv;
+            vec2 c = vec2(0.5, 0.5);
+            float max_g = 1.;
+            float dist = length(p - c) * 2. ;
+
+            float step1 = 0.;
+            float step2 = 0.2;
+            float step3 = 0.3;
+
+            vec4 color;
+            float a0 = 1.;
+            float a1 = 1.;
+            float a2 = 0.7;
+            float a3 = 0.0;
+            
+            float alphap = 1.0;
+
+            vec4 c0 = vec4(1., 1., 1., a0 * alphap);
+            vec4 c1 = vec4(0.5, 0.5, 1., a1 * alphap);
+            vec4 c2 = vec4(0.3, 0.3, 1., a2 * alphap);
+            vec4 c3 = vec4(0., 0., 0., 0.);
+
+
+
+            color = mix(c0, c1, smoothstep(step1, step2, dist));
+            color = mix(color, c2, smoothstep(step2, step3, dist));
+            color = mix(color, c3, smoothstep(step3, max_g, dist));
+            
+			gl_FragColor = color;
+		}
+
+		</script>
+
+		<script>
+
+			if ( ! Detector.webgl ) Detector.addGetWebGLMessage();
+
+			var container, stats;
+
+			var camera, scene, mesh, mesh2, renderer, time_min, TE;
+            var mouseX=10, mouseY=20;
+
+			var uniforms;
+
+
+            var trail_emitter_movement = {
+                x:0, y:0, z:0
+            }
+
+
+			init();
+            
+			animate();
+            
+            
+            
+            function TrailEmitter(scene){
+                
+                var geom  = new THREE.SphereGeometry(20, 10, 10);
+                var mat   = new THREE.MeshPhongMaterial({color:0xffff00});
+                this.mesh = new THREE.Mesh(geom, mat);
+                this.oldtime = 0;
+                this.trailTime = 5000;
+                
+                this.speed = 50;
+                
+                var d = 30;
+                
+                var geom  = new THREE.SphereGeometry(5, 10, 10);
+                var mat   = new THREE.MeshLambertMaterial({color:0xff00ff, transparent:true, opacity:0.5});
+                this.emitter = new THREE.Mesh(geom, mat);
+                
+                this.mesh.add( this.emitter );
+                
+                scene.add(this.mesh);
+                this.trailPlanesIds = 0;
+                this.uniformsUpds = {};
+                this.update = function(time){
+                    
+                    
+                    for(var i  in this.uniformsUpds ){
+                        this.uniformsUpds[i](time);
+                    }
+                    var a = time / 1000;
+                    
+                    var z = d * Math.cos(a);
+                    var x = d * Math.sin(a);
+                    
+                    this.emitter.position.x = x;
+                    this.emitter.position.z = z;
+                    
+                    
+                    var dx = new THREE.Vector3(trail_emitter_movement.x, trail_emitter_movement.y, trail_emitter_movement.z);
+                    dt = time - this.oldtime
+                    dx.multiplyScalar((dt/ 1000) * this.speed);
+                    // console.log(dx.toArray());
+                    this.mesh.position.add(dx);
+                    
+                    this.oldtime = time;
+                    
+                    
+                    // creating cubic object in the current coordinates;
+                    // timeout to delete in
+                    
+                    var geom  = new THREE.PlaneGeometry(5, 5, 5);
+                    
+                    
+                    var shader = {
+                        vertexShader : document.getElementById("vTrailSprite").textContent,
+                        fragmentShader : document.getElementById("fTrailSprite").textContent,
+                        uniforms:{
+                            timeStarted:{type:"i", value:0},
+                            timeCurrent:{type:"i", value:0},
+                            timeLapsing:{type:"i", value: this.trailTime},
+                            scale: {type:"v3", value:null},
+                        },
+                        side:THREE.DoubleSide,
+                        transparent:true,
+                        blending:THREE.AdditiveBlending
+                        
+                    }
+                    
+                    //console.log(
+                    var mat   = new THREE.ShaderMaterial(shader);
+                    
+                    var trailObj = new THREE.Mesh(geom, mat);
+                    
+                    
+                    var m = this.emitter.matrixWorld.clone();
+                    
+                    if (m != null){
+                        var arr = m.decompose(trailObj.position, trailObj.quaternion, trailObj.scale);
+                        // console.log(arr);
+                        scene.add(trailObj);
+                        shader.uniforms.scale.value = trailObj.scale;
+                        shader.uniforms.timeStarted.value = time;
+                        
+                        trailObj.scale.multiplyScalar(10);
+                        var cID = this.trailPlanesIds;
+                    
+                        this.trailPlanesIds+=1;
+                        this.uniformsUpds[cID] = function(time){
+
+                            shader.uniforms.timeCurrent.value = time;
+                            
+                        }
+                        var _this = this;
+                        setTimeout(function(){
+                            scene.remove(trailObj);
+                            delete _this.uniformsUpds[cID];
+                        },this.trailTime)
+                        
+                    }
+                    
+                    
+                    
+                }
+                
+            }
+			
+			function init() {
+				renderer = new THREE.WebGLRenderer({
+                    antialias:true,
+                    alpha: true
+                });
+				container = document.getElementById( 'container' );
+                var TT = Date.now();
+                time_min = TT - 10000;
+
+				camera = new THREE.PerspectiveCamera( 40, window.innerWidth / window.innerHeight, 1, 3000 );
+				camera.position.y = 500 ;
+				camera.position.x = 500 ;
+				camera.position.z = 200;
+                camera.lookAt(0,0,0);
+                
+
+				scene = new THREE.Scene();
+
+            	controls = new THREE.OrbitControls( camera, renderer.domElement );
+            	// STATS
+            	stats = new Stats();
+            	stats.domElement.style.position = 'absolute';
+            	stats.domElement.style.bottom = '0px';
+            	stats.domElement.style.zIndex = 100;
+            	container.appendChild( stats.domElement );
+            	// LIGHT
+            	var light = new THREE.PointLight(0xffffff);
+            	light.position.set(0,250,0);
+            	scene.add(light);
+            	// FLOOR
+            	var floorTexture = new THREE.ImageUtils.loadTexture( 'textures/checkerboard.jpg' );
+            	floorTexture.wrapS = floorTexture.wrapT = THREE.RepeatWrapping; 
+            	floorTexture.repeat.set( 10, 10 );
+            	var floorMaterial = new THREE.MeshBasicMaterial( { map: floorTexture, side: THREE.DoubleSide } );
+            	var floorGeometry = new THREE.PlaneGeometry(1000, 1000, 10, 10);
+            	var floor = new THREE.Mesh(floorGeometry, floorMaterial);
+            	floor.position.y = -0.5;
+            	floor.rotation.x = Math.PI / 2;
+            	scene.add(floor);
+            	// SKYBOX/FOG
+            	var skyBoxGeometry = new THREE.BoxGeometry( 10000, 10000, 10000 );
+            	var skyBoxMaterial = new THREE.MeshBasicMaterial( { color: 0x9999ff, side: THREE.BackSide } );
+            	var skyBox = new THREE.Mesh( skyBoxGeometry, skyBoxMaterial );
+            	scene.add(skyBox);
+            	scene.fog = new THREE.FogExp2( 0x9999ff, 0.00025 );
+                
+				
+                
+                TE = new TrailEmitter(scene);
+                
+                
+                
+				container.appendChild( renderer.domElement );
+
+				stats = new Stats();
+				stats.domElement.style.position = 'absolute';
+				stats.domElement.style.top = '0px';
+				container.appendChild( stats.domElement );
+
+				onWindowResize();
+
+				
+
+			}
+
+			//function onWindowResize( event ) {
+
+			//	uniforms.resolution.value.x = window.innerWidth;
+			//	uniforms.resolution.value.y = window.innerHeight;
+
+			//	renderer.setSize( window.innerWidth, window.innerHeight );
+
+			// }
+
+			//
+
+			function animate() {
+
+				requestAnimationFrame( animate );
+
+				render();
+				stats.update();
+
+			}
+
+			function render() {
+                TE.update(Date.now());
+
+				renderer.render( scene, camera );
+
+			}
+            
+			function onWindowResize() {
+                
+
+				windowHalfX = window.innerWidth / 2;
+				windowHalfY = window.innerHeight / 2;
+
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+
+
+
+				renderer.setSize( window.innerWidth, window.innerHeight );
+
+			}
+            
+
+			function onDocumentMouseMove( event ) {
+
+				mouseX = ( event.clientX - windowHalfX ) /5;
+				mouseY = ( event.clientY - windowHalfY ) /5;
+
+			}
+            document.addEventListener("keydown", function(e){
+                console.log(e.keyCode);
+                // 87 - w
+                // 83 - s
+                // 65 - a
+                // 68 - d
+                // 32 - space
+                // 67 - c
+                switch(e.keyCode ){
+                    case 87:
+                        trail_emitter_movement.z = 1;
+                        break;
+                    case 83 :
+                        trail_emitter_movement.z = -1;
+                        break;
+
+
+                    case 65:
+                        trail_emitter_movement.x = 1;
+                        break;
+                    case 68 :
+                        trail_emitter_movement.x = -1;
+                        break;
+
+
+                    case 32:
+                        trail_emitter_movement.y = 1;
+                        break;
+                    case 67 :
+                        trail_emitter_movement.y = -1;
+                        break;
+                        
+                }
+                // console.log(trail_emitter_movement);
+                
+            })
+            
+            
+            document.addEventListener("keyup", function(e){
+                console.log(e.keyCode);
+                // 87 - w
+                // 83 - s
+                // 65 - a
+                // 68 - d
+                // 32 - space
+                // 67 - c
+                switch(e.keyCode ){
+                    case 87:
+                    case 83 :
+                        trail_emitter_movement.z = 0;
+                        break;
+
+
+                    case 65:
+                    case 68 :
+                        trail_emitter_movement.x = 0;
+                        break;
+
+
+                    case 32:
+                    case 67 :
+                        trail_emitter_movement.y = 0;
+                        break;
+                        
+                }
+                
+            })
+            
+            document.addEventListener('mouseup', function(e){
+
+
+            }, false);
+
+		</script>
+
+	</body>
+</html>
