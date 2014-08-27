@@ -29,7 +29,7 @@ THREE.ShaderPass.prototype = {
 	render: function ( renderer, writeBuffer, readBuffer, delta ) {
 
 		if ( this.uniforms[ this.textureID ] ) {
-
+            
 			this.uniforms[ this.textureID ].value = readBuffer;
 
 		}
@@ -37,11 +37,10 @@ THREE.ShaderPass.prototype = {
 		THREE.EffectComposer.quad.material = this.material;
 
 		if ( this.renderToScreen ) {
-
+            
 			renderer.render( THREE.EffectComposer.scene, THREE.EffectComposer.camera );
 
 		} else {
-            console.log(">>>");
 
 			renderer.render( THREE.EffectComposer.scene, THREE.EffectComposer.camera, writeBuffer, this.clear );
 

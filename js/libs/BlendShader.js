@@ -10,7 +10,7 @@ THREE.BlendShader = {
 
 		"tDiffuse1": { type: "t", value: null },
 		"tDiffuse2": { type: "t", value: null },
-		"mixRatio":  { type: "f", value: 0.5 },
+		"mixRatio":  { type: "f", value: 0.4 },
 		"opacity":   { type: "f", value: 1.0 }
 
 	},
@@ -42,7 +42,7 @@ THREE.BlendShader = {
             "mix(0., 1., 0.1);",
 			"vec4 texel1 = texture2D( tDiffuse1, vUv );",
 			"vec4 texel2 = texture2D( tDiffuse2, vUv );",
-			"gl_FragColor = opacity * mix( texel1, texel2, 1. );",
+			"gl_FragColor = opacity * mix( texel1, texel2, mixRatio);",
 
 		"}"
 

@@ -43,6 +43,173 @@
 		<script src="js/controls/OrbitControls.js"></script>
         
 		<script src="js/libs/stats.min.js"></script>
+		
+        <script id="vLineShader" type="x-shader/x-vertex">
+        
+        uniform vec3 center;
+        uniform float radius;
+
+        uniform vec3 scale;
+        varying float radius2;
+        
+    		void main()	{
+                
+                vec3 S = scale;
+    			
+                float rotation = 0.0;
+            
+                vec3 alignedPosition = vec3(position.x * S.x, position.y * S.y, position.z * S.z);
+
+                vec2 pos = alignedPosition.xy;
+            
+    			vec2 rotatedPosition;
+    			rotatedPosition.x = cos( rotation ) * alignedPosition.x - sin( rotation ) * alignedPosition.y;
+    			rotatedPosition.y = sin( rotation ) * alignedPosition.x + cos( rotation ) * alignedPosition.y;
+            
+    			vec4 finalPosition;
+			
+    			finalPosition = modelViewMatrix * vec4( 0.0, 0.0, 0.0, 1.0 );
+                finalPosition.xy += rotatedPosition;
+                finalPosition = projectionMatrix * finalPosition;
+            
+                gl_Position =  finalPosition;
+                
+                
+                
+                radius2 = radius * radius;
+                
+                // center = gl_Position;
+            
+    		}
+        </script>
+        
+		<script id="fLineShader" type="x-shader/x-fragment">
+        
+            uniform mat4 inverseProjectionMatrix; 
+            uniform mat4 cameraMatrixWorld;
+            uniform float vpWidth;
+            uniform float vpHeight;
+            uniform vec3 center;
+            uniform float radius;
+            uniform vec3 cyl_normal;
+
+            varying float radius2;
+
+            
+            
+            
+            vec3 solveQ(float a, float b, float c){
+                float d = b*b - 4.*a*c;
+                if(d < 0.0){
+                    return vec3(0,0,-1);
+                }
+                if(d == 0.0){
+                    float x = -0.5 * b / a;
+                    return vec3(x,x,1);
+                    
+                }
+                float q;
+                if(b > 0.0){
+                    q = -0.5 * (b + sqrt(d) );
+                }else{
+                    q = -0.5 * (b - sqrt(d) );
+                }
+                
+                return vec3(q/a , c/q, 1);
+            }
+            vec4 project(vec4 v, mat4 m){
+
+                float d = v.x * m[3][0] + v.y * m[3][1] + v.z * m[3][2] + m[3][3];
+                d = 1.0/d;
+                
+                float x = d*(v.x * m[0][0] + v.y * m[0][1] + v.z * m[0][2] + m[0][3]);
+                float y = d*(v.x * m[1][0] + v.y * m[1][1] + v.z * m[1][2] + m[1][3]);
+                float z = d*(v.x * m[2][0] + v.y * m[2][1] + v.z * m[2][2] + m[2][3]);
+                
+                return vec4(x, y, z, 0.);
+                
+            }
+
+            vec4 project1(vec4 v, mat4 m){
+
+                float d = v.x * m[0][3] + v.y * m[1][3] + v.z * m[2][3] + m[3][3];
+                d = 1.0/d;
+                
+                float x = d*(v.x * m[0][0] + v.y * m[1][0] + v.z * m[2][0] + m[3][0]);
+                float y = d*(v.x * m[0][1] + v.y * m[1][1] + v.z * m[2][1] + m[3][1]);
+                float z = d*(v.x * m[0][2] + v.y * m[1][2] + v.z * m[2][2] + m[3][2]);
+                
+                return vec4(x, y, z, 0.);
+                
+            }
+
+    		void main() {
+                // mat4 pmi = inverse(projectionMatrix);
+                mat4 vpm = cameraMatrixWorld * inverseProjectionMatrix;
+                
+                float x = gl_FragCoord.x / vpWidth;
+                float y = gl_FragCoord.y / vpHeight;
+                float z = gl_FragCoord.w / gl_FragCoord.z;
+                
+                float ndcx = x * 2.0 - 1.0;
+                float ndcy = y * 2.0 - 1.0;
+                float ndcz = z * 2.0 - 1.0;
+                
+                vec4 screen = vec4(ndcx, ndcy, ndcz, 1.0);
+                
+                vec4 worldPoint = project1(screen, vpm);
+                
+                vec3 wp = worldPoint.xyz;
+                vec3 ray = wp - cameraPosition;
+                
+                vec3 rdir = normalize(ray);
+                vec3 rorig = cameraPosition;
+                
+                
+                
+                vec3 L =  cameraPosition.xyz - center.xyz;
+                vec3 P = cameraPosition.xyz;
+                vec3 D = rdir;
+                vec3 A = cyl_normal;
+                vec3 C = center.xyz;
+                
+                vec3 CC = C - A * dot(A,C);
+                vec3 PP = P - A * dot(A,P);
+                vec3 DD = D - A * dot(A,D);
+                
+                float a = dot(PP,PP);
+                float b = 2.0 * dot(PP , (D - C - dot(D-C , A)*A));
+                vec3 _cv = (D - C - dot(D-C, A)*A );
+                float c =  dot(_cv, _cv) - radius2;
+
+                //float a = dot(DD,DD);
+                //float b = 2.0 * dot(DD,PP);
+                //float c = dot(PP,PP) - 2.0 * dot(CC, PP) + dot(CC,CC) - radius2;
+                
+                /*
+                float a = dot(rdir, rdir);
+                float b = 2. * dot( rdir, L );
+                float c = dot(L, L) - radius2;
+                */
+                vec3 sol = solveQ(a,b,c);
+                
+                
+                if(sol.z < 0.0) {
+                    //gl_FragColor = vec4(1., 0. ,0. , 1.);
+                    discard;
+                    
+                }else{
+                    
+                    float alp = abs(sol.x - sol.y);
+                    alp = 0.95*alp/2.0/radius;
+                    
+                    gl_FragColor = vec4(1., 0. ,1.0 , alp);
+                        
+                    
+                }
+    		}
+        
+        </script>
 
 		<script id="vTrailSprite" type="x-shader/x-vertex">
         varying vec2 vUv;
@@ -129,7 +296,7 @@
 
 			var container, stats;
 
-			var camera, scene, mesh, mesh2, renderer, time_min, TE;
+			var camera, scene, mesh, mesh2, renderer, time_min, TE_List = [];
             var mouseX=10, mouseY=20;
 
 			var uniforms;
@@ -152,9 +319,11 @@
                 var mat   = new THREE.MeshPhongMaterial({color:0xffff00});
                 this.mesh = new THREE.Mesh(geom, mat);
                 this.oldtime = 0;
-                this.trailTime = 5000;
+                this.trailTime = 800;
+                this.trailPartSpeed = 0;
                 
-                this.speed = 50;
+                this.speed = 100;
+                this.rot_speed = 10;
                 
                 var d = 30;
                 
@@ -167,19 +336,20 @@
                 scene.add(this.mesh);
                 this.trailPlanesIds = 0;
                 this.uniformsUpds = {};
+                var last_particle_time = 0
                 this.update = function(time){
                     
                     
                     for(var i  in this.uniformsUpds ){
                         this.uniformsUpds[i](time);
                     }
-                    var a = time / 1000;
+                    var a = time / 1000 * this.rot_speed;
                     
-                    var z = d * Math.cos(a);
+                    var y = d * Math.cos(a);
                     var x = d * Math.sin(a);
                     
+                    this.emitter.position.y = y;
                     this.emitter.position.x = x;
-                    this.emitter.position.z = z;
                     
                     
                     var dx = new THREE.Vector3(trail_emitter_movement.x, trail_emitter_movement.y, trail_emitter_movement.z);
@@ -188,61 +358,69 @@
                     // console.log(dx.toArray());
                     this.mesh.position.add(dx);
                     
+                    if( (time - last_particle_time )  > this.trailPartSpeed){
+                        last_particle_time = time;
+                    
+                        // creating cubic object in the current coordinates;
+                        // timeout to delete in
+                    
+                        var geom  = new THREE.PlaneGeometry(5, 5, 5);
+                    
+                    
+                        var shader = {
+                            vertexShader : document.getElementById("vTrailSprite").textContent,
+                            fragmentShader : document.getElementById("fTrailSprite").textContent,
+                            uniforms:{
+                                timeStarted:{type:"i", value:0},
+                                timeCurrent:{type:"i", value:0},
+                                timeLapsing:{type:"i", value: this.trailTime},
+                                scale: {type:"v3", value:null},
+                            },
+                            side:THREE.DoubleSide,
+                            transparent:true,
+                            blending:THREE.AdditiveBlending
+                        
+                        }
+                    
+                    
+                        //console.log(
+                        var mat   = new THREE.ShaderMaterial(shader);
+                    
+                        var trailObj = new THREE.Mesh(geom, mat);
+                    
+                    
+                        var m = this.emitter.matrixWorld.clone();
+                    
+                        if (m != null){
+                            var arr = m.decompose(trailObj.position, trailObj.quaternion, trailObj.scale);
+                            // console.log(arr);
+                            scene.add(trailObj);
+                            shader.uniforms.scale.value = trailObj.scale;
+                            shader.uniforms.timeStarted.value = time;
+                        
+                            trailObj.scale.multiplyScalar(10);
+                            var cID = this.trailPlanesIds;
+                    
+                            this.trailPlanesIds+=1;
+                            this.uniformsUpds[cID] = function(time){
+
+                                shader.uniforms.timeCurrent.value = time;
+                            
+                            }
+                            var _this = this;
+                            setTimeout(function(){
+                                scene.remove(trailObj);
+                                delete _this.uniformsUpds[cID];
+                            }, (this.trailTime * 0.6) )
+                        
+                        }
+                    }
+                    
+                    
+                    
+                    
                     this.oldtime = time;
                     
-                    
-                    // creating cubic object in the current coordinates;
-                    // timeout to delete in
-                    
-                    var geom  = new THREE.PlaneGeometry(5, 5, 5);
-                    
-                    
-                    var shader = {
-                        vertexShader : document.getElementById("vTrailSprite").textContent,
-                        fragmentShader : document.getElementById("fTrailSprite").textContent,
-                        uniforms:{
-                            timeStarted:{type:"i", value:0},
-                            timeCurrent:{type:"i", value:0},
-                            timeLapsing:{type:"i", value: this.trailTime},
-                            scale: {type:"v3", value:null},
-                        },
-                        side:THREE.DoubleSide,
-                        transparent:true,
-                        blending:THREE.AdditiveBlending
-                        
-                    }
-                    
-                    //console.log(
-                    var mat   = new THREE.ShaderMaterial(shader);
-                    
-                    var trailObj = new THREE.Mesh(geom, mat);
-                    
-                    
-                    var m = this.emitter.matrixWorld.clone();
-                    
-                    if (m != null){
-                        var arr = m.decompose(trailObj.position, trailObj.quaternion, trailObj.scale);
-                        // console.log(arr);
-                        scene.add(trailObj);
-                        shader.uniforms.scale.value = trailObj.scale;
-                        shader.uniforms.timeStarted.value = time;
-                        
-                        trailObj.scale.multiplyScalar(10);
-                        var cID = this.trailPlanesIds;
-                    
-                        this.trailPlanesIds+=1;
-                        this.uniformsUpds[cID] = function(time){
-
-                            shader.uniforms.timeCurrent.value = time;
-                            
-                        }
-                        var _this = this;
-                        setTimeout(function(){
-                            scene.remove(trailObj);
-                            delete _this.uniformsUpds[cID];
-                        },this.trailTime)
-                        
-                    }
                     
                     
                     
@@ -297,8 +475,78 @@
             	scene.fog = new THREE.FogExp2( 0x9999ff, 0.00025 );
                 
 				
+                //for(var i = 0; i  < 30; i++){
+                    
+                //    TE_List.push( new TrailEmitter(scene) );
+                //}
                 
-                TE = new TrailEmitter(scene);
+                
+                function Line(R, pos){
+                    // console.log("gemo");
+                    var geom = new THREE.PlaneGeometry(R,R , R);
+                
+                    var SCREEN_WIDTH = window.innerWidth;
+                    var SCREEN_HEIGHT = window.innerHeight;
+                
+                    var lineShader = {
+                        vertexShader : document.getElementById("vLineShader").textContent,
+                        fragmentShader : document.getElementById("fLineShader").textContent,
+                        uniforms:{
+                            "cameraMatrixWorld":{type:"m4", value:null},
+                            "inverseProjectionMatrix": {type:"m4", value:new THREE.Matrix4().getInverse(camera.projectionMatrix.clone())},
+                            "cameraPosition":{type:"v3", value:null},
+                            "vpWidth":{type:"f", value:SCREEN_WIDTH},
+                            "vpHeight":{type:"f", value:SCREEN_HEIGHT},
+                            "center":{type:"v3", value:new THREE.Vector3()},
+                            "radius":{type:"f", value: R},
+                            "scale":{type:"v3", value: null},
+                            "time": {type:"f", value:0.0},
+                            "cyl_normal": {type:"v3", value:new THREE.Vector3(0,1,0)}
+                            
+                            
+                        },
+                        transparent:true,
+                        side:THREE.DoubleSide,
+                        // blending: THREE.NormalBl
+                    }
+                    
+                    //console.log(lineShader);
+                    //console.log('ss')
+                    lineShader.uniforms.cameraPosition.value = camera.position;
+                    lineShader.uniforms.cameraMatrixWorld.value = camera.matrixWorld;
+                    var mat = new THREE.ShaderMaterial(lineShader)
+                    //console.log("shader done, add to scene");
+                    //var mat = new THREE.LineBasicMaterial( {vertexColors: THREE.VertexColors, linewidth:1 });
+                    
+                    
+                    var line = new THREE.Mesh (geom,mat);
+                    line.position = pos;
+                    // console.log("LL", line.position);
+                    line.scale.multiplyScalar(20);
+                    lineShader.uniforms.center.value = line.position;
+                    lineShader.uniforms.scale.value = line.scale;
+                    
+                    scene.add(line);
+                    // console.log("added");
+                    return {
+                        update:function(t){
+                            
+                        }
+                    }
+                    
+                }
+                for(var i =0; i< 2; i++){
+                    var sqr_size  = 500;
+                    var x = Math.random() * 500 - sqr_size/2;
+                    var y = Math.random() * 500 - sqr_size/2;
+                    var z = Math.random() * 500 - sqr_size/2;
+                    
+                    var pos = new THREE.Vector3(x,y,z);
+                    Line(50, pos);
+                    
+                }
+
+                
                 
                 
                 
@@ -336,7 +584,10 @@
 			}
 
 			function render() {
-                TE.update(Date.now());
+                var t = Date.now()
+                for( var j =0; j < TE_List.length; j ++){
+                    TE_List[ j ].update( t );
+                }
 
 				renderer.render( scene, camera );
 
