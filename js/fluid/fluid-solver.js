@@ -28,7 +28,7 @@
 
         this.n = n;
 
-        this.dt = 0.15; // The simulation time-step
+        this.dt = 0.29; // The simulation time-step
         this.diffusion = 0.0005; // The amount of diffusion
         this.viscosity = 0.0001; // The fluid's viscosity
 

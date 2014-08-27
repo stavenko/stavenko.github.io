@@ -2,7 +2,7 @@
     'use strict';
 
     var NUM_OF_CELLS = 128, // Number of cells (not including the boundary)
-        VIEW_SIZE = 256,    // View size (square)
+        VIEW_SIZE = 128,    // View size (square)
         FPS = 60;           // Frames per second
 
     // Check if we're on a mobile device
@@ -246,9 +246,9 @@
         // I would like to have some emiiter in the scene
         
         var emitters = [
-        [NUM_OF_CELLS/4, NUM_OF_CELLS, [0, -11], 20],
-        [2*NUM_OF_CELLS/4, NUM_OF_CELLS, [-0.1, -11], 50],
-        [3*NUM_OF_CELLS/4, NUM_OF_CELLS, [-0.1, -11], 20],
+        [NUM_OF_CELLS/4, NUM_OF_CELLS, [0, -30], 20],
+        [2*NUM_OF_CELLS/4, NUM_OF_CELLS, [-0.1, -25], 100],
+        [3*NUM_OF_CELLS/4, NUM_OF_CELLS, [-0.1, -30], 20 ],
        
         ];
         for(var ix =0; ix<emitters.length; ix++){
