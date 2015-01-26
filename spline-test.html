@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>three.js webgl - shader [Monjori]</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<style>
+			body {
+				color: #ffffff;
+				font-family:Monospace;
+				font-size:13px;
+				text-align:center;
+				font-weight: bold;
+
+				background-color: #000000;
+				margin: 0px;
+				overflow: hidden;
+			}
+
+			#info {
+				position: absolute;
+				top: 0px; width: 100%;
+				padding: 5px;
+			}
+
+			a {
+
+				color: #ffffff;
+			}
+
+			#oldie a { color:#da0 }
+		</style>
+	</head>
+	<body onload = "start()">
+
+		<div id="container"></div>
+		<div id="info"><a href="http://threejs.org" target="_blank">three.js</a> - shader demo. featuring <a href="http://www.pouet.net/prod.php?which=52761" target="_blank">Monjori by Mic</a></div>
+
+		<script src="js/three.min.js"></script>
+        <script src="js/libs/three_monkey/customWebGLRenderer.js"></script>
+        
+        
+        <script src="js/libs/tween.min.js"></script>
+
+        <script src="js/Detector.js"></script>
+        
+		<script src="js/controls/OrbitControls.js"></script>
+        
+		<script src="js/libs/stats.min.js"></script>
+
+        <script src="js/libs/CopyShader.js"></script>
+        <script src="js/libs/BlendShader.js"></script>
+        <script src="js/libs/EffectComposer.js"></script>
+        <script src="js/libs/ShaderPass.js"></script>
+        <script src="js/libs/RenderPass.js"></script>
+        
+
+        
+        <script src="js/libs/VelocityShader.js"></script>
+        <script src="js/libs/PerObjectBlurShader.js"></script>
+        <script src="js/libs/VelocityPass.js"></script>
+
+        <script src="js/libs/SavePass.js"></script>
+
+        <script src="js/libs/DotScreenShader.js"></script>
+        <script src="js/libs/RGBShiftShader.js"></script>
+
+
+
+
+        <script type="x-shader/x-vertex" id ="vSplinedLine">
+            #define MAX_CONTROL_POINTS 10
+            uniform vec3 topSplinePoints[MAX_CONTROL_POINTS];
+            uniform vec3 bottomSplinePoints[MAX_CONTROL_POINTS];
+            uniform float splineLength;
+            uniform float geometryLength;
+            uniform int drawOnly;
+            
+            bool iIsEq(float a,float b){
+                return abs(a-b) < 0.001;
+            }
+            float fact(float x){
+                float m = 0.0;
+                float f = 1.;
+                if( iIsEq(x,m) ) return f;
+                m = 1.;
+                if( iIsEq(x,m) ) return f;
+                m = 2.;
+                f *= m;
+                if( iIsEq(x,m) ) return f;
+                m = 3.;
+                f *= m;
+                if( iIsEq(x,m) ) return f;
+                m = 4.;
+                f *= m;
+                if( iIsEq(x,m) ) return f;
+                m = 5.;
+                f *= m;
+                if( iIsEq(x,m) ) return f;
+                m = 6.;
+                f *= m;
+                if( iIsEq(x,m) ) return f;
+                m = 7.;
+                f *= m;
+                if( iIsEq(x,m) ) return f;
+                m = 8.;
+                f *= m;
+                if( iIsEq(x,m) ) return f;
+                m = 9.;
+                f *= m;
+                if( iIsEq(x,m) ) return f;
+                m = 10.;
+                f *= m;
+                if( iIsEq(x,m) ) return f;
+                m = 11.;
+                f *= m;
+                if( iIsEq(x,m) ) return f;
+                
+            }
+            
+            float bernstein(float i, float n){
+                return fact(n) / (fact(i) * fact(n-i));
+            }
+            
+            vec3 point(float t, vec3 p[MAX_CONTROL_POINTS]){
+                vec3 res = vec3(0.0);;
+                vec3 pi;
+                float n = min(float(drawOnly)-1.0, splineLength-1.0);
+                
+                for(int i = 0; i < MAX_CONTROL_POINTS; i += 1){
+                    if(i > int(n)) break;
+                    pi = p[i] * bernstein(float(i), n) * pow(t, float(i)) * pow(1.0 - t, n- float(i));
+                    res += pi;
+                } 
+                return res;
+                
+            }
+            
+            void main(){
+                vec3 pos;
+                if (drawOnly == 0){
+                    pos = vec3(-10000.0, 0.0, 0.0);
+                }else{
+                    bool is_up = position.x > 0.0;
+                    float num     = floor(position.y);
+                    float t = num / geometryLength;
+                    
+                    if( is_up ){
+                        pos = point(t, topSplinePoints);
+                    }else{
+                        pos = point(t, bottomSplinePoints);
+                    }
+                }
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+            }
+
+        </script>
+
+        <script id="fSplinedLine" type="x-shader/x-fragment">
+
+			
+
+			void main()	{
+                gl_FragColor = vec4(1.0, 1.0, 0.0, 1.0);
+
+			}
+
+		</script>
+
+
+
+		<script>
+		if ( ! Detector.webgl ) Detector.addGetWebGLMessage();
+
+		var container, stats, is_rotated = false, speed = 0, rotatedObject, rotationUni, velocityMat, currentFps, targetFps = 60, effectPerObjectBlur;
+
+		var camera, scene, mesh, mesh2, renderer, composer, time_min = 1403669999000;
+        var mouseX=10, mouseY=20;
+
+        var rotationBlurringShader;
+		var uniforms;
+
+        var start = function(){
+
+            init();
+
+            animate();
+
+        }
+
+
+		function init() {
+			renderer = new THREE.customWebGLRenderer({
+                antialias:true,
+                alpha: true
+            });
+            renderer.sortObjects = false;
+            renderer.setSize( window.innerWidth, window.innerHeight );
+            renderer.setClearColor( 0x000000 );
+
+            container = document.getElementById( 'container' );
+
+            container.appendChild( renderer.domElement );
+            // document.body.appendChild( renderer.domElement );
+
+            scene = new THREE.Scene();
+
+            camera = new THREE.PerspectiveCamera( 40, window.innerWidth / window.innerHeight, 1, 3000 );
+            camera.position.y = 500 ;
+            camera.position.x = 500 ;
+            camera.position.z = 200;
+            camera.lookAt(0,0,0);
+
+
+
+            var TT = Date.now();
+            time_min = TT - 10000;
+            // console.log(TT);
+
+
+
+        	// EVENTS
+        	// THREEx.WindowResize(renderer, camera);
+        	// THREEx.FullScreen.bindKey({ charCode : 'm'.charCodeAt(0) });
+        	// CONTROLS
+        	controls = new THREE.OrbitControls( camera, renderer.domElement );
+        	// STATS
+        	stats = new Stats();
+        	stats.domElement.style.position = 'absolute';
+        	stats.domElement.style.bottom = '0px';
+        	stats.domElement.style.zIndex = 100;
+        	container.appendChild( stats.domElement );
+        	// LIGHT
+
+
+            light = new THREE.DirectionalLight( 0xffffff, 0.5 );
+            light.position.set( - 1, - 1, - 1 );
+            scene.add( light );
+
+            light = new THREE.DirectionalLight( 0xffffff, 1.5 );
+            light.position.set( 1, 1, 1 );
+            scene.add( light );
+
+            // var light = new THREE.PointLight(0xffffff);
+        	// light.position.set(0,250,500);
+        	// scene.add(light);
+        	// FLOOR
+        	var floorTexture = new THREE.ImageUtils.loadTexture( 'textures/checkerboard.jpg' );
+        	floorTexture.wrapS = floorTexture.wrapT = THREE.RepeatWrapping; 
+        	floorTexture.repeat.set( 10, 10 );
+        	var floorMaterial = new THREE.MeshBasicMaterial( { map: floorTexture, side: THREE.DoubleSide } );
+        	var floorGeometry = new THREE.PlaneGeometry(1000, 1000, 10, 10);
+        	var floor = new THREE.Mesh(floorGeometry, floorMaterial);
+        	floor.position.y = -0.5;
+        	floor.rotation.x = - Math.PI / 2;
+        	//scene.add(floor);
+        	// SKYBOX/FOG
+            var __fc = {}
+            function fact(i){
+                if(!(i in __fc)){
+                    __fc[i] = fact_(i);
+                }   
+                return __fc[i];
+                 
+            }
+            function fact_(i){
+                if(i == 1 || i == 0){
+                    return 1;
+                }else{
+                    return i * fact_(i-1);
+                }
+            }
+
+            function splinep(i, n, t, point ){
+                var bernstein = fact(n) / (fact(i) * fact(n-i));
+                
+                var ti = Math.pow(t, i);
+                
+                var t1 = Math.pow(1 - t, n-i);
+                //console.log("   TT", bernstein, ti, t1);
+                
+                
+                var x = point[0] * bernstein * t1 * ti;
+                var y = point[1] * bernstein * t1 * ti;
+                var z = point[2] * bernstein * t1 * ti;
+                //console.log("   C", x,point[0]);
+                return [x,y,z];
+                
+            }
+            var points = [
+                [0,400,100], [20,200,20],[300,30,30], [40,40,400], [500,-5,30] 
+            ];
+            var exit_points = [];
+            var l = points.length;
+            var step = 0.01;
+            for(var t=0; t<=1; t+=step){
+                var p = [0,0,0];
+                //console.log("for p", t);
+                for (var i =0; i< l; i++){
+                    //console.log("   step", i, l);
+                    
+                    
+                    var r = splinep(i, l-1, t, points[i] );
+                    
+                    p[0] += r[0];
+                    p[1] += r[1];
+                    p[2] += r[2];
+                    
+                
+                }
+                exit_points.push(p);
+                
+            }
+            var geom = new THREE.Geometry();
+            for (var i=0; i< exit_points.length; i++){
+                // console.log(exit_points[i]);
+                var p = new THREE.Vector3().fromArray(exit_points[i]);
+                geom.vertices.push(p);
+                var c = new THREE.Color();
+                c.setHSL(i/ exit_points.length , 0.7, 0.5);
+                geom.colors.push(c);
+                
+            }
+            
+            var geom1 = new THREE.Geometry();
+            for (var i=0; i< points.length; i++){
+                // console.log(exit_points[i]);
+                var p = new THREE.Vector3().fromArray(points[i]);
+                geom1.vertices.push(p);
+                var c = new THREE.Color();
+                c.setHSL( 0.0 , 0.5, 0.5);
+                geom1.colors.push(c);
+                
+            }
+            
+            var lm = new THREE.LineBasicMaterial({ linewidth:5, vertexColors:THREE.VertexColors });
+            var line = new THREE.Line(geom, lm);
+            scene.add(line);
+
+            var line = new THREE.Line(geom1, lm);
+            scene.add(line);
+            
+            // function initGeometry
+            
+            var R = Math.floor(Math.random() * 10);
+            
+            
+            var geometry = new THREE.Geometry();
+            var maxPoints = R;
+            var geomPoints = 100;
+            for(var i = 0; i < ( geomPoints ) - 1; i+=1){
+                var T = geomPoints - 1;
+                
+                var top1 = new THREE.Vector3(1, i ,0);
+                var bottom1 = new THREE.Vector3(-1, i,0);
+                
+                var top2 = new THREE.Vector3(1, i+1, 0);
+                var bottom2 = new THREE.Vector3(-1, i+1,0);
+                
+                
+                var uv0 = new THREE.Vector2(0, i/T);
+                var uv1 = new THREE.Vector2(1, i/T);
+                
+                var uv2 = new THREE.Vector2(0, (i+1)/T);
+                var uv3 = new THREE.Vector2(1, (i+1)/T);
+                
+                var ix0 = geometry.vertices.push(top1) - 1;
+                var ix1 = geometry.vertices.push(bottom1) - 1;
+                var ix2 = geometry.vertices.push(top2) - 1;
+                var ix3 = geometry.vertices.push(bottom2) - 1;
+                
+                geometry.faces.push(new THREE.Face3( ix0, ix1, ix2 ));
+                geometry.faceVertexUvs[ 0 ].push( [ uv0, uv1, uv2 ] );
+                geometry.faces.push(new THREE.Face3( ix1, ix2, ix3 ));
+                geometry.faceVertexUvs[ 0 ].push( [ uv1, uv2, uv3 ] );
+            }
+            
+            // lets do a ring
+            var topSpline = [];
+            var bottomSpline = [];
+            var botGeom = new THREE.Geometry();
+            var topGeom = new THREE.Geometry();
+            for (var i =0 ; i < maxPoints; i++){
+                var phi  = i * Math.PI / maxPoints;
+                var rt = 500;
+                var rb = 150;
+                var cos = Math.cos;
+                var sin = Math.sin;
+                var pt = new THREE.Vector3(rt * cos(phi), rt * sin(phi), 50);
+                var pb = new THREE.Vector3(rb * cos(phi), rb * sin(phi), 50)
+                topSpline.push(pt);
+                bottomSpline.push(pb);
+                topGeom.vertices.push(pt);
+                botGeom.vertices.push(pb);
+                
+            }
+            var lmat = new THREE.LineBasicMaterial({color:0xff0000});
+            var b = new THREE.Line(botGeom, lmat);
+            var t = new THREE.Line(topGeom, lmat);
+            
+            scene.add(b);
+            scene.add(t);
+
+            
+            /*
+            uniform vec3 topSplinePoints[5];
+            uniform vec3 bottomSplinePoints[5];
+            unforms float splineLength;
+            */
+            // console.log(topSpline);
+            var shader = {
+                uniforms: {
+                    topSplinePoints: {type:"v3v", value:topSpline},
+                    bottomSplinePoints: {type:"v3v", value:bottomSpline},
+                    splineLength: {type:"f", value:maxPoints},
+                    geometryLength: {type:"f", value:geomPoints},
+                    drawOnly :{type:"i", value:maxPoints}
+                },
+                vertexShader:document.getElementById( 'vSplinedLine' ).textContent,
+                fragmentShader:document.getElementById( 'fSplinedLine' ).textContent,
+                side: THREE.DoubleSide
+            }
+            console.log("LL", maxPoints, topSpline.length);
+            mat = new THREE.ShaderMaterial(shader);
+            var mesh = new THREE.Mesh(geometry, mat);
+            
+            scene.add( mesh );
+            
+			
+
+			stats = new Stats();
+			stats.domElement.style.position = 'absolute';
+			stats.domElement.style.top = '0px';
+			container.appendChild( stats.domElement );
+
+			// onWindowResize();
+
+			
+
+		}
+            
+        
+            var clock = new THREE.Clock();
+
+            
+			function animate(time ) {
+                var t = clock.getDelta();
+                // console.log(t, 1/t);
+                currentFps = 1 / t;
+
+				requestAnimationFrame( animate );
+
+				render();
+				stats.update();
+
+			}
+
+			function render() {
+
+                //TWEEN.update();
+                //rotationUni.speed.value = speed;
+                
+                // console.log("SPEED", speed)
+				//uniforms.time.value += 0.05;
+                //effectPerObjectBlur.uniforms['velocityScale'].value = currentFps / targetFps;
+                
+                var t = new Date().getTime()- time_min;
+                //rotation(t);
+                //scene.overrideMaterial = velocityMat;
+                
+                //composer.render();
+				renderer.render(  scene, camera );
+            
+                
+                
+                // rotationUni.prevModelView.value  = rotatedObject.modelViewMatrix; 
+
+			}
+            
+			function onWindowResize() {
+				//uniforms.resolution.value.x = window.innerWidth;
+				//uniforms.resolution.value.y = window.innerHeight;
+                
+
+				windowHalfX = window.innerWidth / 2;
+				windowHalfY = window.innerHeight / 2;
+
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+
+				//cameraCube.aspect = window.innerWidth / window.innerHeight;
+				//cameraCube.updateProjectionMatrix();
+
+				// renderer.setSize( window.innerWidth, window.innerHeight );
+
+			}
+            
+
+			function onDocumentMouseMove( event ) {
+
+				mouseX = ( event.clientX - windowHalfX ) /5;
+				mouseY = ( event.clientY - windowHalfY ) /5;
+
+
+            }
+        document.addEventListener("keydown", function(e){
+            if( e.keyCode === 32){
+                startRotation();
+            }
+        })
+        document.addEventListener("keyup", function(e){
+            if( e.keyCode === 32){
+                // run();
+                stopRotation();
+            }
+            // if(e.keyCode === )
+        })
+            document.addEventListener('mouseup', function(e){
+                // console.log("set",new Date().getTime() - 1403660000000);
+                // uniforms.beg_time.value = new Date().getTime()- time_min;
+            }, false);
+
+		</script>
+
+	</body >
+</html>

@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<head lang="en">
+    <meta charset="UTF-8">
+    <title></title>
+</head>
+<body>
+
+<script>
+    var superData = [];
+
+    console.log("do it");
+    for (var i = 0; i< 50 * 1024 * 1024; i ++){
+        superData[i] = "0";
+        if(i%10000 == 0){
+            console.log(i);
+        }
+
+    }
+    var dbc = indexedDB.open("test",4);
+    dbc.onupgradeneeded = function(e){
+        var db = e.target.result;
+        var objStore = db.createObjectStore("holyFile", { autoIncrement : true });
+        console.log("where",objStore);
+        // objStore.transaction
+
+    }
+    dbc.onsuccess = function(e){
+        console.log("SS")
+        var db = e.target.result;
+        console.log(">>>", db);
+
+        var wr = db.transaction(["holyFile"], "readwrite");
+        var oStore = wr.objectStore("holyFile");
+        console.log(oStore);
+        oStore.add({"filename":"fn", "fileContent":superData});
+
+
+        var r = db.transaction(["holyFile"], "readonly");
+        var oStoreR = r.objectStore("holyFile");
+        oStoreR.openCursor().onsuccess = function(e){
+            var cursor = event.target.result;
+            if (cursor) {
+                console.log("Name for SSN " + cursor.key + " is " + cursor.value.filename + ">>" +  cursor.value.fileContent.length);
+                cursor.continue();
+            }
+        }
+
+        /*
+        var sv = db.setVersion(3);
+
+        sv.onsuccess = function(e){
+            var db = e.target.result.transaction.db;
+            var tr = db.transaction(["holyFile"], "readwrite");
+            console.log(tr);
+
+        }
+*/
+
+
+    }
+    dbc.onerror = function(e){
+        console.log(e);
+    }
+
+ </script>
+</script>
+</body >
+</html>

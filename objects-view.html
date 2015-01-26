@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>three.js webgl - shader [Monjori]</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<style>
+			body {
+				color: #ffffff;
+				font-family:Monospace;
+				font-size:13px;
+				text-align:center;
+				font-weight: bold;
+
+				background-color: #000000;
+				margin: 0px;
+				overflow: hidden;
+			}
+
+			#info {
+				position: absolute;
+				top: 0px; width: 100%;
+				padding: 5px;
+			}
+
+			a {
+
+				color: #ffffff;
+			}
+
+			#oldie a { color:#da0 }
+		</style>
+	</head>
+	<body>
+
+		<div id="container"></div>
+		<div id="info"><a href="http://threejs.org" target="_blank">three.js</a> - shader demo. featuring <a href="http://www.pouet.net/prod.php?which=52761" target="_blank">Monjori by Mic</a></div>
+
+		<script src="js/Three.js"></script>
+
+		<script src="js/Detector.js"></script>
+        
+		<script src="js/controls/OrbitControls.js"></script>
+        
+		<script src="js/libs/stats.min.js"></script>
+		
+       
+		
+
+		<script>
+
+			if ( ! Detector.webgl ) Detector.addGetWebGLMessage();
+
+			var container, stats;
+
+			var camera, scene, mesh, mesh2, renderer, time_min, TE_List = [], MESHES=[], MESH, WEAPON;
+            var mouseX=10, mouseY=20;
+
+            var clock = new THREE.Clock();
+			var uniforms;
+
+
+            var trail_emitter_movement = {
+                x:0, y:0, z:0
+            }
+
+
+			init();
+            
+			animate();
+            
+            
+            
+            function TrailEmitter(scene){
+                
+                var geom  = new THREE.SphereGeometry(20, 10, 10);
+                var mat   = new THREE.MeshPhongMaterial({color:0xffff00});
+                this.mesh = new THREE.Mesh(geom, mat);
+                this.oldtime = 0;
+                this.trailTime = 800;
+                this.trailPartSpeed = 0;
+                
+                this.speed = 100;
+                this.rot_speed = 10;
+                
+                var d = 30;
+                
+                var geom  = new THREE.SphereGeometry(5, 10, 10);
+                var mat   = new THREE.MeshLambertMaterial({color:0xff00ff, transparent:true, opacity:0.5});
+                this.emitter = new THREE.Mesh(geom, mat);
+                
+                this.mesh.add( this.emitter );
+                
+                scene.add(this.mesh);
+                this.trailPlanesIds = 0;
+                this.uniformsUpds = {};
+                var last_particle_time = 0
+                this.update = function(time){
+                    
+                    
+                    for(var i  in this.uniformsUpds ){
+                        this.uniformsUpds[i](time);
+                    }
+                    var a = time / 1000 * this.rot_speed;
+                    
+                    var y = d * Math.cos(a);
+                    var x = d * Math.sin(a);
+                    
+                    this.emitter.position.y = y;
+                    this.emitter.position.x = x;
+                    
+                    
+                    var dx = new THREE.Vector3(trail_emitter_movement.x, trail_emitter_movement.y, trail_emitter_movement.z);
+                    dt = time - this.oldtime
+                    dx.multiplyScalar((dt/ 1000) * this.speed);
+                    // console.log(dx.toArray());
+                    this.mesh.position.add(dx);
+                    
+                    if( (time - last_particle_time )  > this.trailPartSpeed){
+                        last_particle_time = time;
+                    
+                        // creating cubic object in the current coordinates;
+                        // timeout to delete in
+                    
+                        var geom  = new THREE.PlaneGeometry(5, 5, 5);
+                    
+                    
+                        var shader = {
+                            vertexShader : document.getElementById("vTrailSprite").textContent,
+                            fragmentShader : document.getElementById("fTrailSprite").textContent,
+                            uniforms:{
+                                timeStarted:{type:"i", value:0},
+                                timeCurrent:{type:"i", value:0},
+                                timeLapsing:{type:"i", value: this.trailTime},
+                                scale: {type:"v3", value:null},
+                            },
+                            side:THREE.DoubleSide,
+                            transparent:true,
+                            blending:THREE.AdditiveBlending
+                        
+                        }
+                    
+                    
+                        //console.log(
+                        var mat   = new THREE.ShaderMaterial(shader);
+                    
+                        var trailObj = new THREE.Mesh(geom, mat);
+                    
+                    
+                        var m = this.emitter.matrixWorld.clone();
+                    
+                        if (m != null){
+                            var arr = m.decompose(trailObj.position, trailObj.quaternion, trailObj.scale);
+                            // console.log(arr);
+                            scene.add(trailObj);
+                            shader.uniforms.scale.value = trailObj.scale;
+                            shader.uniforms.timeStarted.value = time;
+                        
+                            trailObj.scale.multiplyScalar(10);
+                            var cID = this.trailPlanesIds;
+                    
+                            this.trailPlanesIds+=1;
+                            this.uniformsUpds[cID] = function(time){
+
+                                shader.uniforms.timeCurrent.value = time;
+                            
+                            }
+                            var _this = this;
+                            setTimeout(function(){
+                                scene.remove(trailObj);
+                                delete _this.uniformsUpds[cID];
+                            }, (this.trailTime * 0.6) )
+                        
+                        }
+                    }
+                    
+                    
+                    
+                    
+                    this.oldtime = time;
+                    
+                    
+                    
+                    
+                }
+                
+            }
+			
+			function init() {
+				renderer = new THREE.WebGLRenderer({
+                    antialias:true,
+                    alpha: true
+                });
+				container = document.getElementById( 'container' );
+                var TT = Date.now();
+                time_min = TT - 10000;
+
+				camera = new THREE.PerspectiveCamera( 40, window.innerWidth / window.innerHeight, 1, 3000 );
+				camera.position.y = 500 ;
+				camera.position.x = 500 ;
+				camera.position.z = 200;
+                camera.lookAt(0,0,0);
+                
+
+				scene = new THREE.Scene();
+
+            	controls = new THREE.OrbitControls( camera, renderer.domElement );
+            	// STATS
+            	stats = new Stats();
+            	stats.domElement.style.position = 'absolute';
+            	stats.domElement.style.bottom = '0px';
+            	stats.domElement.style.zIndex = 100;
+            	container.appendChild( stats.domElement );
+            	// LIGHT
+            	var light = new THREE.PointLight(0xffffff);
+            	light.position.set(0,250,-500);
+            	scene.add(light);
+
+            	var light = new THREE.PointLight(0xffffff);
+            	light.position.set(0,250,500);
+            	scene.add(light);
+
+            	var light = new THREE.PointLight(0xffffff);
+            	light.position.set(500,250,0);
+            	scene.add(light);
+            	// FLOOR
+            	var floorTexture = new THREE.ImageUtils.loadTexture( 'textures/checkerboard.jpg' );
+            	floorTexture.wrapS = floorTexture.wrapT = THREE.RepeatWrapping; 
+            	floorTexture.repeat.set( 10, 10 );
+            	var floorMaterial = new THREE.MeshBasicMaterial( { map: floorTexture, side: THREE.DoubleSide } );
+            	var floorGeometry = new THREE.PlaneGeometry(1000, 1000, 10, 10);
+            	var floor = new THREE.Mesh(floorGeometry, floorMaterial);
+            	floor.position.y = -0.5;
+            	floor.rotation.x = Math.PI / 2;
+            	scene.add(floor);
+            	// SKYBOX/FOG
+            	var skyBoxGeometry = new THREE.BoxGeometry( 10000, 10000, 10000 );
+            	var skyBoxMaterial = new THREE.MeshBasicMaterial( { color: 0x9999ff, side: THREE.BackSide } );
+            	var skyBox = new THREE.Mesh( skyBoxGeometry, skyBoxMaterial );
+            	scene.add(skyBox);
+            	scene.fog = new THREE.FogExp2( 0x9999ff, 0.00025 );
+                
+				
+              
+              
+                
+                var mesh_load = function(){
+                    var loader = new THREE.JSONLoader();
+                    // console.log("PL");
+                    
+                    loader.load("/models/samurai.js", function(geom, mat){
+                        var animations = {};
+                        var par ;
+                        var cube = 100;
+                        var x = Math.random()* cube - cube/2,
+                            y = 0; //Math.random()* cube - cube/2,
+                            z = Math.random()* cube - cube/2 ;
+                            
+                            
+                        var position = new THREE.Vector3(x,y,z);
+                        //var rotation = new THREE.Euler(0,z,x, "YZX");
+                    
+                        var m = new THREE.MeshFaceMaterial(mat);
+                        // m = new THREE.MeshBasicMaterial({color:0xff0000});
+                        var materials = m.materials;
+                        for (var i = 0,length = materials.length; i < length; i++) {
+                            var material = materials[i];
+                            material.skinning = true;
+                        }
+                        geom.computeVertexNormals();
+
+                        geom.computeBoundingBox();
+                        if (geom.animations == null) {
+                            geom.animations = [geom.animation];
+                        }
+                        var par = new THREE.SkinnedMesh(geom, m);
+                        par.position = position;
+                        par.rotation.y += Math.random()* Math.PI *2;
+                        
+                        MESH = par;
+                        
+                        //par = mesh;
+                        // mesh.scale.multiplyScalar(10);
+                        //console.log(mesh);
+                    
+                        for(var i = 0; i < geom.animations.length; i ++){
+                            var a = geom.animations[i];
+                            // console.log(a.name);
+                            animations[a.name] = new THREE.Animation(par, a);
+                        
+                        }
+                        MESH.animations = animations;
+                        // this.skeletonHelper = new THREE.SkeletonHelper(this.mesh);
+                        //this.skeletonHelper.update();
+                        //this.mesh.add(this.skeletonHelper);
+                    
+                        // animations['sword_attack'].stop();
+                    
+                    
+                        //console.log('loaded');
+                        MESHES.push(MESH);
+                        var update = THREE.Bone.prototype.update;
+                        THREE.Bone.prototype.update = function(parentSkinMatrix, forceUpdate) {
+                            update.call(this, parentSkinMatrix, forceUpdate);
+                            this.updateMatrixWorld( true );
+                        };
+                        THREE.Object3D.prototype.update = function() {};
+                    
+                        scene.add(par);
+                    
+                        loader.load("/models/sword.js", function(geom, mat){
+                    
+                             //var m = new THREE.MeshFaceMaterial(mat);
+                            m = new THREE.MeshBasicMaterial({color:0xff00ff});
+                            var sp = new THREE.SphereGeometry(10,10,10);
+                    
+                            var sword = new THREE.Mesh(geom, m);
+                            WEAPON = sword;
+                            sword.scale.multiplyScalar(1);
+                            
+                            par.WEAPON = WEAPON;
+                        
+                            //console.log(par);
+                            //console.log(sword.position.toArray());
+                            // mesh.position.add( par.position.negate());
+                            //console.log(sword.position.toArray());
+                            // sword.position.y += 200;
+                            sword.position.x += 1;
+                            par.skeleton.bones[32].add(sword);
+                            par.effects = {"first":undefined, "current": undefined};
+                            // scene.add(sword);
+                            setTimeout(function(){
+                                // console.log(">>");
+                                animations['sword_attack'].play(0);
+                                
+                                
+                                
+                                
+                            },Math.random()*1000)
+                   
+                    
+                            // mesh.position.x +=1;
+                            // console.log('loaded');
+                        })
+                    })
+                
+                }
+                for(var i =0; i< 10; i++){
+                    mesh_load();
+                    
+                    
+                }
+                
+                
+				container.appendChild( renderer.domElement );
+
+				stats = new Stats();
+				stats.domElement.style.position = 'absolute';
+				stats.domElement.style.top = '0px';
+				container.appendChild( stats.domElement );
+
+				onWindowResize();
+
+				
+
+			}
+
+			//function onWindowResize( event ) {
+
+			//	uniforms.resolution.value.x = window.innerWidth;
+			//	uniforms.resolution.value.y = window.innerHeight;
+
+			//	renderer.setSize( window.innerWidth, window.innerHeight );
+
+			// }
+
+			//
+            
+            function randomUpd(){
+                
+                for (var i in MESHES){
+                    (function(){
+                        var mesh = MESHES[i];
+                        if(mesh.animations.sword_attack.isPlaying){                        
+                            
+                            var ct = mesh.animations.sword_attack.currentTime
+                            if( ct < 0.32 && ct > 0.2){
+                                var wc = mesh.WEAPON.clone();
+                                
+                                var mw  = mesh.WEAPON.matrixWorld.clone();
+                                // var vv = new THREE.Vector3().getPositionFromMatrix(mw) ;
+                                // console.log("P", MESH.animations.sword_attack.currentTime);
+                                mw.decompose(wc.position, wc.rotation, wc.scale);
+                                
+                                if(mesh.effects.first === undefined){
+                                    mesh.effects.first = mw;
+                                    
+                                }
+                                mesh.effects.current = mw;
+                                
+                    
+                        
+                            }
+                        }    
+                        
+                    })()
+                    
+                    
+                }
+                
+            }
+
+			function animate() {
+                var d = clock.getDelta();
+                
+				requestAnimationFrame( animate );
+                randomUpd();
+                THREE.AnimationHandler.update( d );
+				render();
+				stats.update();
+
+			}
+
+			function render() {
+                var t = Date.now()
+                for( var j =0; j < TE_List.length; j ++){
+                    TE_List[ j ].update( t );
+                }
+
+				renderer.render( scene, camera );
+
+			}
+            
+			function onWindowResize() {
+                
+
+				windowHalfX = window.innerWidth / 2;
+				windowHalfY = window.innerHeight / 2;
+
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+
+
+
+				renderer.setSize( window.innerWidth, window.innerHeight );
+
+			}
+            
+
+			function onDocumentMouseMove( event ) {
+
+				mouseX = ( event.clientX - windowHalfX ) /5;
+				mouseY = ( event.clientY - windowHalfY ) /5;
+
+			}
+            document.addEventListener("keydown", function(e){
+                console.log(e.keyCode);
+                // 87 - w
+                // 83 - s
+                // 65 - a
+                // 68 - d
+                // 32 - space
+                // 67 - c
+                switch(e.keyCode ){
+                    case 87:
+                        trail_emitter_movement.z = 1;
+                        break;
+                    case 83 :
+                        trail_emitter_movement.z = -1;
+                        break;
+
+
+                    case 65:
+                        trail_emitter_movement.x = 1;
+                        break;
+                    case 68 :
+                        trail_emitter_movement.x = -1;
+                        break;
+
+
+                    case 32:
+                        trail_emitter_movement.y = 1;
+                        break;
+                    case 67 :
+                        trail_emitter_movement.y = -1;
+                        break;
+                        
+                }
+                // console.log(trail_emitter_movement);
+                
+            })
+            
+            
+            document.addEventListener("keyup", function(e){
+                console.log(e.keyCode);
+                // 87 - w
+                // 83 - s
+                // 65 - a
+                // 68 - d
+                // 32 - space
+                // 67 - c
+                switch(e.keyCode ){
+                    case 87:
+                    case 83 :
+                        trail_emitter_movement.z = 0;
+                        break;
+
+
+                    case 65:
+                    case 68 :
+                        trail_emitter_movement.x = 0;
+                        break;
+
+
+                    case 32:
+                    case 67 :
+                        trail_emitter_movement.y = 0;
+                        break;
+                        
+                }
+                
+            })
+            
+            document.addEventListener('mouseup', function(e){
+
+
+            }, false);
+
+		</script>
+
+	</body>
+</html>

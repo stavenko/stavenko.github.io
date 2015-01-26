@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>three.js webgl - shader [Monjori]</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<style>
+			body {
+				color: #ffffff;
+				font-family:Monospace;
+				font-size:13px;
+				text-align:center;
+				font-weight: bold;
+
+				background-color: #000000;
+				margin: 0px;
+				overflow: hidden;
+			}
+
+			#info {
+				position: absolute;
+				top: 0px; width: 100%;
+				padding: 5px;
+			}
+
+			a {
+
+				color: #ffffff;
+			}
+
+			#oldie a { color:#da0 }
+		</style>
+	</head>
+	<body onload = "start()">
+
+		<div id="container"></div>
+		<div id="info"><a href="http://threejs.org" target="_blank">three.js</a> - shader demo. featuring <a href="http://www.pouet.net/prod.php?which=52761" target="_blank">Monjori by Mic</a></div>
+
+		<script src="js/three.min.js"></script>
+        <script src="js/libs/three_monkey/customWebGLRenderer.js"></script>
+        
+        
+        <script src="js/libs/tween.min.js"></script>
+
+        <script src="js/Detector.js"></script>
+        
+		<script src="js/controls/OrbitControls.js"></script>
+        
+		<script src="js/libs/stats.min.js"></script>
+
+        <script src="js/libs/CopyShader.js"></script>
+        <script src="js/libs/BlendShader.js"></script>
+        <script src="js/libs/EffectComposer.js"></script>
+        <script src="js/libs/ShaderPass.js"></script>
+        <script src="js/libs/RenderPass.js"></script>
+        <script src="js/libs/RefractionObjectPass.js"></script>
+        <script src="js/libs/RefractShader.js"></script>
+        
+        
+
+        
+        <script src="js/libs/VelocityShader.js"></script>
+        <script src="js/libs/PerObjectBlurShader.js"></script>
+        <script src="js/libs/VelocityPass.js"></script>
+
+        <script src="js/libs/SavePass.js"></script>
+
+
+
+
+
+        <script type="x-shader/x-vertex" id ="vRefract">
+            
+            varying vec3 vn;
+            varying vec2 vUv;
+            void main(){
+                vUv = uv;
+                vn = normalize(normalMatrix * normal);
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+
+        </script>
+
+        <script id="fRefract" type="x-shader/x-fragment">
+        vec4 mod289(vec4 x)                                                                                               
+        {                                                                                                                 
+          return x - floor(x * (1.0 / 289.0)) * 289.0;                                                                    
+        }                                                                                                                 
+                                                                                                                  
+        vec4 permute(vec4 x)                                                                                              
+        {                                                                                                                 
+          return mod289(((x*34.0)+1.0)*x);                                                                                
+        }                                                                                                                 
+                                                                                                                  
+        vec4 taylorInvSqrt(vec4 r)                                                                                        
+        {                                                                                                                 
+          return 1.79284291400159 - 0.85373472095314 * r;                                                                 
+        }                                                                                                                 
+                                                                                                                  
+        vec2 fade(vec2 t) {                                                                                               
+          return t*t*t*(t*(t*6.0-15.0)+10.0);                                                                             
+        }                                                                                                                 
+                                                                                                                  
+        // Classic Perlin noise                                                                                           
+        float cnoise(vec2 P){                                                                                                                 
+            vec4 Pi = floor(P.xyxy) + vec4(0.0, 0.0, 1.0, 1.0);                                                             
+            vec4 Pf = fract(P.xyxy) - vec4(0.0, 0.0, 1.0, 1.0);                                                             
+            Pi = mod289(Pi); // To avoid truncation effects in permutation                                                  
+            vec4 ix = Pi.xzxz;                                                                                              
+            vec4 iy = Pi.yyww;                                                                                              
+            vec4 fx = Pf.xzxz;                                                                                              
+            vec4 fy = Pf.yyww;                                                                                              
+                                                                                                              
+            vec4 i = permute(permute(ix) + iy);                                                                             
+                                                                                                              
+            vec4 gx = fract(i * (1.0 / 41.0)) * 2.0 - 1.0 ;                                                                 
+            vec4 gy = abs(gx) - 0.5 ;                                                                                       
+            vec4 tx = floor(gx + 0.5);                                                                                      
+            gx = gx - tx;                                                                                                   
+                                                                                                              
+            vec2 g00 = vec2(gx.x,gy.x);                                                                                     
+            vec2 g10 = vec2(gx.y,gy.y);                                                                                     
+            vec2 g01 = vec2(gx.z,gy.z);                                                                                     
+            vec2 g11 = vec2(gx.w,gy.w);                                                                                     
+                                                                                                              
+            vec4 norm = taylorInvSqrt(vec4(dot(g00, g00), dot(g01, g01), dot(g10, g10), dot(g11, g11)));                    
+            g00 *= norm.x;                                                                                                  
+            g01 *= norm.y;                                                                                                  
+            g10 *= norm.z;                                                                                                  
+            g11 *= norm.w;                                                                                                  
+                                                                                                              
+            float n00 = dot(g00, vec2(fx.x, fy.x));                                                                         
+            float n10 = dot(g10, vec2(fx.y, fy.y));                                                                         
+            float n01 = dot(g01, vec2(fx.z, fy.z));                                                                         
+            float n11 = dot(g11, vec2(fx.w, fy.w));                                                                         
+                                                                                                              
+            vec2 fade_xy = fade(Pf.xy);                                                                                     
+            vec2 n_x = mix(vec2(n00, n01), vec2(n10, n11), fade_xy.x);                                                      
+            float n_xy = mix(n_x.x, n_x.y, fade_xy.y);                                                                      
+            return 2.3 * n_xy;                                                                                              
+        }                                                                                                                 
+                                                                                                                       
+             // Classic Perlin noise, periodic variant                                                                         
+             float pnoise(vec2 P, vec2 rep)                                                                                    
+             {                                                                                                                 
+               vec4 Pi = floor(P.xyxy) + vec4(0.0, 0.0, 1.0, 1.0);                                                             
+               vec4 Pf = fract(P.xyxy) - vec4(0.0, 0.0, 1.0, 1.0);                                                             
+               Pi = mod(Pi, rep.xyxy); // To create noise with explicit period                                                 
+               Pi = mod289(Pi);        // To avoid truncation effects in permutation                                           
+               vec4 ix = Pi.xzxz;                                                                                              
+               vec4 iy = Pi.yyww;                                                                                              
+               vec4 fx = Pf.xzxz;                                                                                              
+               vec4 fy = Pf.yyww;                                                                                              
+                                                                                                                       
+               vec4 i = permute(permute(ix) + iy);                                                                             
+                                                                                                                       
+               vec4 gx = fract(i * (1.0 / 41.0)) * 2.0 - 1.0 ;                                                                 
+               vec4 gy = abs(gx) - 0.5 ;                                                                                       
+               vec4 tx = floor(gx + 0.5);                                                                                      
+               gx = gx - tx;                                                                                                   
+                                                                                                                       
+               vec2 g00 = vec2(gx.x,gy.x);                                                                                     
+               vec2 g10 = vec2(gx.y,gy.y);                                                                                     
+               vec2 g01 = vec2(gx.z,gy.z);                                                                                     
+               vec2 g11 = vec2(gx.w,gy.w);                                                                                     
+                                                                                                                       
+               vec4 norm = taylorInvSqrt(vec4(dot(g00, g00), dot(g01, g01), dot(g10, g10), dot(g11, g11)));                    
+               g00 *= norm.x;                                                                                                  
+               g01 *= norm.y;                                                                                                  
+               g10 *= norm.z;                                                                                                  
+               g11 *= norm.w;                                                                                                  
+                                                                                                                       
+               float n00 = dot(g00, vec2(fx.x, fy.x));                                                                         
+               float n10 = dot(g10, vec2(fx.y, fy.y));                                                                         
+               float n01 = dot(g01, vec2(fx.z, fy.z));                                                                         
+               float n11 = dot(g11, vec2(fx.w, fy.w));                                                                         
+                                                                                                                       
+               vec2 fade_xy = fade(Pf.xy);                                                                                     
+               vec2 n_x = mix(vec2(n00, n01), vec2(n10, n11), fade_xy.x);                                                      
+               float n_xy = mix(n_x.x, n_x.y, fade_xy.y);                                                                      
+               return 2.3 * n_xy;                                                                                              
+             }                                                                                                                 
+
+
+            varying vec2 vUv;
+            uniform float time;
+            
+            
+			void main()	{
+                
+                //float T = mod(time,  10.0);
+                vec2 t = vec2(time,0.0);
+                float d = length(vec2(0.5) - vUv) *2.0;;
+                
+                
+
+                gl_FragColor = vec4(d,d,d, 1.0);
+
+			}
+
+		</script>
+
+
+
+		<script>
+		if ( ! Detector.webgl ) Detector.addGetWebGLMessage();
+
+		var container, stats, is_rotated = false, speed = 0, rotatedObject, rotationUni, velocityMat, currentFps, targetFps = 60, effectPerObjectBlur;
+
+		var camera, scene, mesh, mesh2, renderer, composer, time_min = 1403669999000;
+        var mouseX=10, mouseY=20;
+
+        var rotationBlurringShader;
+		var uniforms, shader;
+
+        var start = function(){
+
+            init();
+
+            animate();
+
+        }
+
+
+		function init() {
+			renderer = new THREE.customWebGLRenderer({
+                antialias:true,
+                alpha: true
+            });
+            renderer.sortObjects = false;
+            renderer.setSize( window.innerWidth, window.innerHeight );
+            renderer.setClearColor( 0x000000 );
+
+            container = document.getElementById( 'container' );
+
+            container.appendChild( renderer.domElement );
+            // document.body.appendChild( renderer.domElement );
+
+            scene = new THREE.Scene();
+
+            camera = new THREE.PerspectiveCamera( 40, window.innerWidth / window.innerHeight, 1, 3000 );
+            camera.position.y = 500 ;
+            camera.position.x = 500 ;
+            camera.position.z = 200;
+            camera.lookAt(0,0,0);
+
+
+
+            var TT = Date.now();
+            time_min = TT - 10000;
+            // console.log(TT);
+
+
+
+        	// EVENTS
+        	// THREEx.WindowResize(renderer, camera);
+        	// THREEx.FullScreen.bindKey({ charCode : 'm'.charCodeAt(0) });
+        	// CONTROLS
+        	controls = new THREE.OrbitControls( camera, renderer.domElement );
+        	// STATS
+        	stats = new Stats();
+        	stats.domElement.style.position = 'absolute';
+        	stats.domElement.style.bottom = '0px';
+        	stats.domElement.style.zIndex = 100;
+        	container.appendChild( stats.domElement );
+        	// LIGHT
+
+
+            light = new THREE.DirectionalLight( 0xffffff, 0.5 );
+            light.position.set( - 1, - 1, - 1 );
+            scene.add( light );
+
+            light = new THREE.DirectionalLight( 0xffffff, 1.5 );
+            light.position.set( 1, 1, 1 );
+            scene.add( light );
+
+            // var light = new THREE.PointLight(0xffffff);
+        	// light.position.set(0,250,500);
+        	// scene.add(light);
+        	// FLOOR
+        	var floorTexture = new THREE.ImageUtils.loadTexture( 'textures/checkerboard.jpg' );
+        	floorTexture.wrapS = floorTexture.wrapT = THREE.RepeatWrapping; 
+        	floorTexture.repeat.set( 10, 10 );
+        	var floorMaterial = new THREE.MeshBasicMaterial( { map: floorTexture, side: THREE.DoubleSide } );
+        	var floorGeometry = new THREE.PlaneGeometry(1000, 1000, 10, 10);
+        	var floor = new THREE.Mesh(floorGeometry, floorMaterial);
+        	floor.position.y = -0.5;
+        	floor.rotation.x = - Math.PI / 2;
+        	scene.add(floor);
+        	// SKYBOX/FOG
+            var SCREEN_WIDTH = window.innerWidth;
+            var SCREEN_HEIGHT = window.innerHeight;
+            var spgeom = new THREE.PlaneGeometry(500,100,100);
+            spgeom.computeFaceNormals();
+            spgeom.computeVertexNormals()
+            shader =  {
+                    uniforms:{
+                        "map":{type:"t", value:new THREE.ImageUtils.loadTexture( 'textures/crate.gif' )},
+                        "time":{type:"f", value:0},
+                        "vpWidth":{type:"f", value:SCREEN_WIDTH},
+                        "vpHeight":{type:"f", value:SCREEN_HEIGHT},
+                        "cameraMatrixWorld":{type:"m4", value:null},
+                        "inverseProjectionMatrix": {type:"m4", value:new THREE.Matrix4().getInverse(camera.projectionMatrix.clone())},
+                    },
+  
+                    vertexShader: document.getElementById( 'vRefract' ).textContent,
+                    fragmentShader: document.getElementById( 'fRefract' ).textContent,
+                    name:"refract",
+                    transparent:true,
+                    alphaTest:1.0,
+                    // side: THREE.DoubleSide
+                    
+                }
+            var spmat = new  THREE.ShaderMaterial(shader);
+            // spmat = new THREE.MeshNormalMaterial({name:'refract'});
+            shader.uniforms.cameraMatrixWorld.value = camera.matrixWorld;
+            var mesh = new THREE.Mesh(spgeom, spmat);
+            mesh.position.y += 50;
+            mesh.rotation.x = -Math.PI/2;
+            scene.add(mesh);
+			
+
+
+
+
+
+            composer = new THREE.EffectComposer( renderer );
+           
+            composer.addPass( new THREE.RenderPass( scene, camera ) );
+            var effectSave  = new THREE.SavePass();
+ 
+            composer.addPass(effectSave);
+            
+            
+            var effectRefrPass = new THREE.RefractionObjectPass( scene, camera ) ;
+            
+            composer.addPass(effectRefrPass);
+            
+
+            var effectBlend =  new THREE.ShaderPass( THREE.RefractShader, "tDiffuse1" );
+            effectBlend.uniforms[ 'tDiffuse2' ].value = effectSave.renderTarget;
+        
+            composer.addPass(effectBlend);
+            
+            
+            var final = new THREE.ShaderPass( THREE.CopyShader );
+            //var final = new THREE.RefractionObjectPass(scene, camera);
+            final.renderToScreen = true;
+            
+            composer.addPass( final );
+
+			stats = new Stats();
+			stats.domElement.style.position = 'absolute';
+			stats.domElement.style.top = '0px';
+			container.appendChild( stats.domElement );
+
+			// onWindowResize();
+
+			
+
+		}
+            
+        
+            var clock = new THREE.Clock();
+
+            
+			function animate(time ) {
+                var t = clock.getDelta();
+                // console.log(t, 1/t);
+                currentFps = 1 / t;
+
+				requestAnimationFrame( animate );
+
+				render();
+				stats.update();
+
+			}
+
+			function render() {
+
+                //TWEEN.update();
+                //rotationUni.speed.value = speed;
+                
+                // console.log("SPEED", speed)
+				shader.uniforms.time.value += 0.05;
+                //effectPerObjectBlur.uniforms['velocityScale'].value = currentFps / targetFps;
+                
+                var t = new Date().getTime()- time_min;
+                //rotation(t);
+                //scene.overrideMaterial = velocityMat;
+                
+                composer.render();
+				// renderer.render(  scene, camera );
+            
+                
+                
+                // rotationUni.prevModelView.value  = rotatedObject.modelViewMatrix; 
+
+			}
+            
+			function onWindowResize() {
+				//uniforms.resolution.value.x = window.innerWidth;
+				//uniforms.resolution.value.y = window.innerHeight;
+                
+
+				windowHalfX = window.innerWidth / 2;
+				windowHalfY = window.innerHeight / 2;
+
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+
+				//cameraCube.aspect = window.innerWidth / window.innerHeight;
+				//cameraCube.updateProjectionMatrix();
+
+				// renderer.setSize( window.innerWidth, window.innerHeight );
+
+			}
+            
+
+			function onDocumentMouseMove( event ) {
+
+				mouseX = ( event.clientX - windowHalfX ) /5;
+				mouseY = ( event.clientY - windowHalfY ) /5;
+
+
+            }
+        document.addEventListener("keydown", function(e){
+            if( e.keyCode === 32){
+                startRotation();
+            }
+        })
+        document.addEventListener("keyup", function(e){
+            if( e.keyCode === 32){
+                // run();
+                stopRotation();
+            }
+            // if(e.keyCode === )
+        })
+            document.addEventListener('mouseup', function(e){
+                // console.log("set",new Date().getTime() - 1403660000000);
+                // uniforms.beg_time.value = new Date().getTime()- time_min;
+            }, false);
+
+		</script>
+
+	</body >
+</html>
