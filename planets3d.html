@@ -615,6 +615,67 @@
 				mouseY = ( event.clientY - windowHalfY ) /5;
 
 			}
+            var checkMatrix = function(){
+                var getUnit = function(s){
+                    if(s == 'x'){
+                        return new THREE.Vector3(1,0,0);
+                    }
+                    if(s == 'y'){
+                        return new THREE.Vector3(0,1,0);
+                    }
+                    if(s == 'z'){
+                        return new THREE.Vector3(0,0,1);
+                    }
+                }
+                var lines = function(q, m){
+                    var o1 = new THREE.Object3D()
+                    var o2 = new THREE.Object3D()
+                    var g = new THREE.Geometry();
+                    g.vertices.push( new THREE.Vector3(0,0,0), new THREE.Vector3(0,100,0))
+                    var g2 = new THREE.Geometry();
+                    g2.vertices.push( new THREE.Vector3(1,0,0), new THREE.Vector3(1,100,0))
+                    var l1 = new THREE.Line(g, new THREE.LineBasicMaterial({ color: 0xff00ff}));
+                    o1.add(l1);
+                    var l2 = new THREE.Line(g2, new THREE.LineBasicMaterial({ color: 0xffff00}));
+                    o2.add(l2);
+                    o1.setRotationFromQuaternion ( q); 
+                    o2.applyMatrix(m);
+                    scene.add( o1 )
+                    scene.add( o2 );
+
+                }
+                var axs  = ["z", "x","y", "z"];
+                var ag = [ Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI  ];
+                var m = new THREE.Matrix4();
+                var q = new THREE.Quaternion();
+
+                for(var i = 0; i < axs.length; i ++){
+                    var axis = getUnit( axs[i]);
+                    var angle = ag[i];
+                    var a = axis.clone();
+                    var b = axis.clone();
+                    a.applyMatrix4(m);
+                    b.applyQuaternion(q);
+                    console.log("A-B", a, b);
+                    var rt = new THREE.Matrix4();
+                    var qt = new THREE.Quaternion();
+                    rt.makeRotationAxis( a, angle );
+                    qt.setFromAxisAngle( b, angle )
+
+                    m.multiply( rt );
+                    q.multiply( qt );
+                } 
+                var c = new THREE.Vector3(1,0,0);
+                var d = new THREE.Vector3(1,0,0);
+
+                c.applyQuaternion(q.clone());
+                d.applyMatrix4(m.clone());
+                var qq = new THREE.Quaternion(); 
+                qq.setFromRotationMatrix( rt.clone() );
+                lines(q, m);
+                console.log("RESULT", c,d ); 
+                
+            }
             document.addEventListener('mouseup', function(e){
                 // console.log("set",new Date().getTime() - 1403660000000);
                 //uniforms.beg_time.value = new Date().getTime()- 1403660000000;
